@@ -31,7 +31,18 @@
 ; crunced using the -m <buffersize> and possibly the -l flags. Any other
 ; flag will just mess things up.
 .exo_get_crunched_byte
-{
+
+IF 0
+	txa
+	pha
+	lda exo_swr_bank
+	tax
+	lda swr_ram_banks,X
+	sta &fe30	
+;	sta &f4
+	pla
+	tax
+ENDIF
 
 ._byte
 	lda &ffff ; EXO data stream address	; **SELF-MODIFIED CODE**
@@ -42,16 +53,56 @@ _byte_hi = _byte + 2
 	INC _byte_lo
 	bne _byte_skip_hi
 	INC _byte_hi			; forward decrunch
+
+
+
+
+; SDM: hack to advance SWR bank
+	php
+	pha
+
+
+	; check if we've reach end of SWR bank
+	lda _byte_hi
+	cmp #&C0
+	bne exo_swr_ok
+
+	; switch to next bank if so
+
+	lda #&80
+	sta _byte_hi
+	inc exo_swr_bank
+
+	; select this bank since there may be further crunched byte reads to come
+	
+	txa
+	pha
+	lda exo_swr_bank
+	tax
+	lda swr_ram_banks,X
+	sta &fe30	
+	sta &f4
+	pla
+	tax
+
+.exo_swr_ok
+	pla
+	plp
+
 ._byte_skip_hi:
 
+
+
 	rts						; decrunch_file is called.
-}
+
+
+.exo_swr_bank EQUB 0
 
 ; -------------------------------------------------------------------
 
 
-EXO_crunch_byte_lo = exo_get_crunched_byte + 1
-EXO_crunch_byte_hi = exo_get_crunched_byte + 2
+EXO_crunch_byte_lo = _byte + 1 ; exo_get_crunched_byte + 1
+EXO_crunch_byte_hi = _byte + 2 ;exo_get_crunched_byte + 2
 
 
 
@@ -89,7 +140,7 @@ EXO_crunch_byte_hi = exo_get_crunched_byte + 2
 	inx
 	tya
 	and #$0f
-	beq _init_shortcut		; starta på ny sekvens
+	beq _init_shortcut		; starta pï¿½ ny sekvens
 
 	txa			; this clears reg a
 	lsr a			; and sets the carry flag

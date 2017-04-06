@@ -15,12 +15,12 @@
 \ *	Space reserved for runtime buffers not preinitialised
 \ ******************************************************************
 
-EXO_buffer_len = 1024			; this is now packed in to language workspace at &0400
+EXO_buffer_len = 16384 ; 8192			; this is now packed in to language workspace at &0400
 \\ If you want to make this bigger than 1024 then need to find somewhere else to put it!!
 
 \\ Exomiser unpack buffer (must be page aligned)
 \\ Now moved this to the language workspace at &0400 - &0800
-EXO_buffer_start = &400
+EXO_buffer_start = &3000
 EXO_buffer_end = EXO_buffer_start + EXO_buffer_len
 
 ; -------------------------------------------------------------------
