@@ -10,7 +10,7 @@
     ],
     "tasks": [
         {
-            "taskName": "fastvgm.ssd",
+            "taskName": "beebstep.ssd",
             "problemMatcher": {
                 "owner": "6502",
                 "fileLocation": [
@@ -26,15 +26,15 @@
                 }
             },
             "args": [
-                "BeebAsm.exe -v -i fastvgm.asm -do fastvgm.ssd -boot Main"
+                "BeebAsm.exe -v -i beebstep.asm -do beebstep.ssd -boot Main"
             ],
             "isBuildCommand": true
         },
         {
-            "taskName": "Run 'fastvgm.ssd' in Emulator",
+            "taskName": "Run 'beebstep.ssd' in Emulator",
             "isTestCommand": true,
             "args": [
-                "BeebEm.exe fastvgm.ssd"
+                "BeebEm.exe beebstep.ssd"
             ]
         }
     ]
