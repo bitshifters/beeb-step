@@ -264,7 +264,7 @@ EQUB &01, &02, &04, &08, &10, &20, &40, &80
 	JMP _sample_end
 
 	.not_sample_end
-;	JSR psg_decode
+	JSR psg_decode
 	JSR psg_strobe
 	PLA:TAY:DEY
 	JMP sound_data_loop

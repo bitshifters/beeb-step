@@ -1,6 +1,6 @@
 
 
-
+PLAY_MUSIC = TRUE
 
 SYS_ORB = &fe40
 SYS_ORA = &fe41
@@ -66,6 +66,8 @@ INCLUDE "lib/print.asm"
 .bank_file2   EQUS "Bank2  $"
 .bank_file3   EQUS "Bank3  $"
 
+.screen_file  EQUS "LOAD Page", 13
+
 .swr_fail_text EQUS "No SWR banks found.", 13, 10, 0
 .swr_bank_text EQUS "Found %b", LO(swr_ram_banks_count), HI(swr_ram_banks_count), " SWR banks.", 13, 10, 0
 .swr_bank_text2 EQUS " Bank %a", 13, 10, 0
@@ -79,6 +81,11 @@ SONG_ADDR = &8000
 
 .entry
 {
+	lda #200
+	ldx #3
+	jsr &fff4
+
+
     jsr swr_init
     bne swr_ok
 
@@ -100,7 +107,7 @@ IF 1
 ENDIF
 
 
-
+IF PLAY_MUSIC
 	lda #0
 	sta exo_swr_bank
 
@@ -145,11 +152,28 @@ ENDIF
     ldy #HI(bank_file3)
     jsr disksys_load_file
     MPRINT loading_bank_text2
-
-
-
+ENDIF
 
 	; Let's get going.
+
+	lda #22
+	jsr &ffee
+	lda #7
+	jsr &ffee
+
+	lda #10
+	sta &fe00
+	lda #32
+	sta &fe01	
+
+	ldx #LO(screen_file)
+	ldy #HI(screen_file)
+	jsr &fff7
+
+
+
+
+IF PLAY_MUSIC
     lda #0
     jsr swr_select_slot
 
@@ -159,41 +183,49 @@ ENDIF
 	BNE quit
 
 	jsr inittimer1irq
+ENDIF
 
+
+	jsr effect_init
 
 .loop
 	lda #19:jsr osbyte
+
+	lda #135
+	sta &7c22
+
+	lda exo_swr_bank
+	and #&0f
+	tax
+	lda hex2ascii,x
+	sta &7c23
 
 	lda _byte+2
 	and #&f0
 	lsr a:lsr a:lsr a:lsr a
 	tax
 	lda hex2ascii,x
-	sta &7c00
+	sta &7c24
 	lda _byte+2
 	and #&0f
 	tax
 	lda hex2ascii,x
-	sta &7c01
+	sta &7c25
 	
 	lda _byte+1
 	and #&f0
 	lsr a:lsr a:lsr a:lsr a
 	tax
 	lda hex2ascii,x
-	sta &7c02
+	sta &7c26
 	lda _byte+1
 	and #&0f
 	tax
 	lda hex2ascii,x
-	sta &7c03
+	sta &7c27
 
 
-	lda exo_swr_bank
-	and #&0f
-	tax
-	lda hex2ascii,x
-	sta &7c05
+	jsr effect_update
 
 	jmp loop
 
@@ -312,6 +344,184 @@ ENDIF
 .reentry EQUB 0
 }
 
+; Effect Screen Grid is 13 x 7 'pixels'
+GRID_W = 13
+GRID_H = 7
+GRID_SIZE = GRID_W * GRID_H
+
+
+; Position of top left of pixel grid
+OFFS_X = 1
+OFFS_Y = 10
+OFFS_ADDR = &7c00+OFFS_Y*40+OFFS_X
+
+PIXEL_W = 3	; 'pixel' width in chars
+PIXEL_H = 2 ; 'pixel' height in chars
+
+current_pixel = &70
+
+
+.effect_colour_table
+	EQUB 144+8	; 0 - Black (Conceal)
+	EQUB 144+4	; 1 - Blue
+	EQUB 144+1	; 2 - Red
+	EQUB 144+5  ; 3 - Magenta
+	EQUB 144+2	; 4 - Green
+	EQUB 144+6  ; 5 - Cyan
+	EQUB 144+3	; 6 - Yellow
+	EQUB 144+7	; 7 - White
+
+PRECISION = 4
+PIXEL_FULL = (2^PRECISION)-1
+
+; Each byte in the array is a 'brightness' value from 0-63 (where 0 is off and 63 is full bright)
+.grid_array
+	FOR n,0,GRID_SIZE
+		EQUB PIXEL_FULL
+	NEXT
+
+; 
+
+.grid_fade
+{
+	ldx #GRID_SIZE
+.loop
+	lda grid_array,x
+	beq nextg
+
+	tay
+	dey
+	tya
+	sta grid_array,x
+
+.nextg
+	dex
+	bne loop
+
+
+	rts
+}
+
+
+.grid_draw
+{
+	lda #GRID_H
+	sta &8f
+
+	lda #LO(OFFS_ADDR)
+	sta write_colour1+1
+	lda #HI(OFFS_ADDR)
+	sta write_colour1+2
+	
+	lda #LO(OFFS_ADDR+40)
+	sta write_colour2+1
+	lda #HI(OFFS_ADDR+40)
+	sta write_colour2+2
+
+
+	ldy #0
+.yloop
+	ldx #0
+	lda #GRID_W
+	sta &8e
+.xloop
+	tya
+	pha
+	lda grid_array,y
+
+	FOR n,1,PRECISION-3
+		lsr a
+	NEXT
+
+	tay
+	lda effect_colour_table,y
+
+.write_colour1
+	sta OFFS_ADDR,x
+.write_colour2
+	sta OFFS_ADDR+40,x
+
+	inx
+	inx
+	inx
+
+	pla
+	tay
+	iny
+
+	dec &8e
+	bne xloop
+
+	lda write_colour1+1:clc:adc #80:sta write_colour1+1:lda write_colour1+2:adc #0:sta write_colour1+2
+	lda write_colour2+1:clc:adc #80:sta write_colour2+1:lda write_colour2+2:adc #0:sta write_colour2+2
+
+
+
+	dec &8f
+	bne yloop
+
+	rts
+}
+
+
+.effect_init
+{
+	lda #0
+	sta current_pixel
+	rts
+}
+
+.effect_update
+{
+	jsr grid_fade
+	jsr grid_draw
+
+IF 1
+
+	ldx #0
+	ldy #0
+.floop
+	lda vgm_freq_array,x
+	beq nextf
+
+	lda #PIXEL_FULL
+	sta grid_array,y
+	sta grid_array+1,y
+	
+
+	lda #0
+	sta vgm_freq_array,x
+.nextf
+	iny
+	iny
+
+
+	inx
+	cpx #VGM_FX_num_freqs
+	bne floop
+
+
+
+
+ELSE
+	ldx current_pixel
+	lda #PIXEL_FULL
+	sta grid_array,x
+	inc current_pixel
+	lda current_pixel
+	cmp #GRID_SIZE
+	bne scan_ok
+	lda #0
+	sta current_pixel
+.scan_ok
+ENDIF
+
+
+	rts
+}
+
+
+
 
 .end
 
@@ -335,6 +545,6 @@ SAVE "Bank1", song_start+16384, song_start+32768, &8000, &8000
 SAVE "Bank2", song_start+32768, song_start+49152, &8000, &8000
 SAVE "Bank3", song_start+49152, song_start+65536, &8000, &8000
 
-
+PUTFILE "data/page.bin", "Page", &7C00, &7C00
 
 PRINT "Code from ", ~start, "to", ~end
