@@ -372,8 +372,8 @@ BLOCK3_C = 32+1+2
 BLOCK3_D = 32+1+2
 
 ; partial block
-BLOCK2_A = 32+2+4+8+16
-BLOCK2_B = 32+1+2+4+8+16+64
+BLOCK2_A = 32+2+4+8+16+64
+BLOCK2_B = 32+1+4+8+16+64
 BLOCK2_C = 32+2
 BLOCK2_D = 32+1
 
@@ -383,22 +383,20 @@ BLOCK1_B = 32+4+16
 BLOCK1_C = 32
 BLOCK1_D = 32
 
-; use level * 4, where level 
-.block_table
-	EQUB BLOCK1_A, BLOCK1_B, BLOCK1_C, BLOCK1_D
-	EQUB BLOCK1_A, BLOCK1_B, BLOCK1_C, BLOCK1_D
-	EQUB BLOCK2_A, BLOCK2_B, BLOCK2_C, BLOCK2_D
-	EQUB BLOCK3_A, BLOCK3_B, BLOCK3_C, BLOCK3_D
+
 
 ; table for each chr, indexed using same offset as colour lookup (0-7)
+.block_table
 .block_table_A	EQUB BLOCK1_A, BLOCK1_A, BLOCK1_A, BLOCK1_A, BLOCK2_A, BLOCK2_A, BLOCK3_A, BLOCK3_A
 .block_table_B	EQUB BLOCK1_B, BLOCK1_B, BLOCK1_B, BLOCK1_B, BLOCK2_B, BLOCK2_B, BLOCK3_B, BLOCK3_B
 .block_table_C	EQUB BLOCK1_C, BLOCK1_C, BLOCK1_C, BLOCK1_C, BLOCK2_C, BLOCK2_C, BLOCK3_C, BLOCK3_C
 .block_table_D	EQUB BLOCK1_D, BLOCK1_D, BLOCK1_D, BLOCK1_D, BLOCK2_D, BLOCK2_D, BLOCK3_D, BLOCK3_D
 	
+; lookup table of colours
+.block_colours	SKIP 8
 
-
-.effect_colour_table
+; standard colour palette
+.effect_colour_standard
 	EQUB 144+8	; 0 - Black (Conceal)
 	EQUB 144+4	; 1 - Blue
 	EQUB 144+1	; 2 - Red
@@ -408,8 +406,9 @@ BLOCK1_D = 32
 	EQUB 144+3	; 6 - Yellow
 	EQUB 144+7	; 7 - White
 
-.effect_colour_table2	; inverted
-	EQUB 144+7	; 7 - White	
+; inverted colours
+.effect_colour_inverted
+	EQUB 144+7	; 7 - White
 	EQUB 144+3	; 6 - Yellow
 	EQUB 144+6  ; 5 - Cyan
 	EQUB 144+2	; 4 - Green
@@ -418,27 +417,62 @@ BLOCK1_D = 32
 	EQUB 144+4	; 1 - Blue
 	EQUB 144+8	; 0 - Black (Conceal)
 
-.effect_colour_table3	; no black
-	EQUB 144+4	; 0 - Blue
-	EQUB 144+1	; 1 - Red
-	EQUB 144+5  ; 2 - Magenta
-	EQUB 144+2	; 3 - Green
-	EQUB 144+6  ; 4 - Cyan
-	EQUB 144+3	; 5 - Yellow
-	EQUB 144+7	; 6 - White
-	EQUB 144+7	; 7 - White
+
+; all white
+.effect_colour_white
+	EQUB 144+7,144+7,144+7,144+7,144+7,144+7,144+7,144+7
+
+
+MACRO SET_BLOCK_EFFECT effect_addr
+	ldx #8*4-1
+.loop
+	lda effect_addr,x
+	sta block_table,x
+	dex
+	bpl loop
+ENDMACRO
+
+MACRO SET_COLOUR_EFFECT effect_addr
+	ldx #7
+.loop
+	lda effect_addr,x
+	sta block_colours,x
+	dex
+	bpl loop
+ENDMACRO
+
+
+
+
+
+.effect_blocks_all_on
+	EQUB BLOCK3_A, BLOCK3_A, BLOCK3_A, BLOCK3_A, BLOCK3_A, BLOCK3_A, BLOCK3_A, BLOCK3_A
+	EQUB BLOCK3_B, BLOCK3_B, BLOCK3_B, BLOCK3_B, BLOCK3_B, BLOCK3_B, BLOCK3_B, BLOCK3_B
+	EQUB BLOCK3_C, BLOCK3_C, BLOCK3_C, BLOCK3_C, BLOCK3_C, BLOCK3_C, BLOCK3_C, BLOCK3_C
+	EQUB BLOCK3_D, BLOCK3_D, BLOCK3_D, BLOCK3_D, BLOCK3_D, BLOCK3_D, BLOCK3_D, BLOCK3_D
+
+
+.effect_blocks_scaled
+	EQUB BLOCK1_A, BLOCK1_A, BLOCK1_A, BLOCK1_A, BLOCK2_A, BLOCK2_A, BLOCK3_A, BLOCK3_A
+	EQUB BLOCK1_B, BLOCK1_B, BLOCK1_B, BLOCK1_B, BLOCK2_B, BLOCK2_B, BLOCK3_B, BLOCK3_B
+	EQUB BLOCK1_C, BLOCK1_C, BLOCK1_C, BLOCK1_C, BLOCK2_C, BLOCK2_C, BLOCK3_C, BLOCK3_C
+	EQUB BLOCK1_D, BLOCK1_D, BLOCK1_D, BLOCK1_D, BLOCK2_D, BLOCK2_D, BLOCK3_D, BLOCK3_D
+
 
 
 PRECISION = 7
 PIXEL_FULL = (2^PRECISION)-1
 
 
-screen_addr = &80
-current_pixel = &82
-speed = &83
-tmp1 = &84
-tmp2 = &85
-index = &86
+screen_addr = &80 ; &81
+screen_addr2 = &82
+current_pixel = &88
+speed = &89
+tmp1 = &8A
+tmp2 = &8B
+index = &8C
+
+timer = &8E ; &8F
 
 
 ; Each byte in the array is a 'brightness' value from 0-63 (where 0 is off and 63 is full bright)
@@ -473,7 +507,7 @@ index = &86
 	rts
 }
 
-
+IF 0
 ; update the colours of each 'pixel' based on current 'level'
 .grid_draw
 {
@@ -506,12 +540,8 @@ index = &86
 	NEXT
 
 	tay
-IF 1
-	lda effect_colour_table,y	; normal
-ELSE
-	lda effect_colour_table2,y	; inverted
-ENDIF
 
+	lda block_colours,y
 .write_colour1
 	sta OFFS_ADDR,x
 .write_colour2
@@ -540,9 +570,9 @@ ENDIF
 }
 
 
-IF 0
+ELSE
 
-.grid_draw_shapes
+.grid_draw
 {
 	lda #GRID_H
 	sta tmp1
@@ -552,62 +582,52 @@ IF 0
 	lda #HI(OFFS_ADDR)
 	sta screen_addr+1
 
+	lda #LO(OFFS_ADDR+40)
+	sta screen_addr2+0
+	lda #HI(OFFS_ADDR+40)
+	sta screen_addr2+1
+
 	lda #0
 	sta index
 
 .yloop
-	ldx #0
 	lda #GRID_W
 	sta tmp2
+
+	ldy #0
 .xloop
 
-	ldy index
-	lda grid_array,y
+	ldx index
+	lda grid_array,x
 
 	FOR n,1,PRECISION-3
 		lsr a
 	NEXT
-
-
 	tax
 
-	tya
-	pha
-
-	lda block_table_A,x
-	ldy #1
+	lda block_colours,x
 	sta (screen_addr),y
-
-	lda block_table_B,x
-	ldy #2
-	sta (screen_addr),y
-
-	lda block_table_C,x
-	ldy #41
-	sta (screen_addr),y
-
-	lda block_table_C,x
-	ldy #42
-	sta (screen_addr),y
-
-	pla
-	tay
-
-	inx
-	inx
-	inx
-
-	pla
-	tay
+	sta (screen_addr2),y
 	iny
 
+	lda block_table_A,x
+	sta (screen_addr),y
+	lda block_table_C,x
+	sta (screen_addr2),y
+	iny
+
+	lda block_table_B,x
+	sta (screen_addr),y
+	lda block_table_D,x
+	sta (screen_addr2),y
+	iny
+
+	inc index
 	dec tmp2
 	bne xloop
 
-	lda write_colour1+1:clc:adc #80:sta write_colour1+1:lda write_colour1+2:adc #0:sta write_colour1+2
-	lda write_colour2+1:clc:adc #80:sta write_colour2+1:lda write_colour2+2:adc #0:sta write_colour2+2
-
-
+	lda screen_addr+0:clc:adc #80:sta screen_addr+0:lda screen_addr+1:adc #0:sta screen_addr+1
+	lda screen_addr2+0:clc:adc #80:sta screen_addr2+0:lda screen_addr2+1:adc #0:sta screen_addr2+1
 
 	dec tmp1
 	bne yloop
@@ -621,19 +641,61 @@ ENDIF
 
 
 
-
-
-
-
 .effect_init
 {
 	lda #0
 	sta current_pixel
+	sta timer+0
+	sta timer+1
+
+	SET_COLOUR_EFFECT effect_colour_standard
+	SET_BLOCK_EFFECT effect_blocks_all_on
+
 	rts
 }
 
 .effect_update
 {
+	inc timer
+	lda timer
+	cmp #50
+	beq newsecond
+	jmp carryon
+.newsecond
+	lda #0
+	sta timer
+	inc timer+1
+	lda timer+1
+
+	; do something at t=X
+.fx0	cmp #10:bne fx1
+
+	SET_COLOUR_EFFECT effect_colour_standard
+	SET_BLOCK_EFFECT effect_blocks_scaled
+	jmp carryon
+
+.fx1	cmp #20:bne fx2
+
+	SET_COLOUR_EFFECT effect_colour_inverted
+	SET_BLOCK_EFFECT effect_blocks_scaled
+	jmp carryon
+
+.fx2	cmp #30:bne fx3
+
+	SET_COLOUR_EFFECT effect_colour_inverted
+	SET_BLOCK_EFFECT effect_blocks_all_on
+	jmp carryon
+
+.fx3
+
+
+.carryon
+
+
+
+
+
+
 	lda #10
 	jsr grid_fade
 	jsr grid_draw
