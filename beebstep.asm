@@ -358,7 +358,44 @@ OFFS_ADDR = &7c00+OFFS_Y*40+OFFS_X
 PIXEL_W = 3	; 'pixel' width in chars
 PIXEL_H = 2 ; 'pixel' height in chars
 
-current_pixel = &70
+; Block designs
+; [A][B]
+; [C][D]
+
+
+
+
+; full block
+BLOCK3_A = 32+1+2+4+8+16+64
+BLOCK3_B = 32+1+2+4+8+16+64
+BLOCK3_C = 32+1+2
+BLOCK3_D = 32+1+2
+
+; partial block
+BLOCK2_A = 32+2+4+8+16
+BLOCK2_B = 32+1+2+4+8+16+64
+BLOCK2_C = 32+2
+BLOCK2_D = 32+1
+
+; small block
+BLOCK1_A = 32+8+64
+BLOCK1_B = 32+4+16
+BLOCK1_C = 32
+BLOCK1_D = 32
+
+; use level * 4, where level 
+.block_table
+	EQUB BLOCK1_A, BLOCK1_B, BLOCK1_C, BLOCK1_D
+	EQUB BLOCK1_A, BLOCK1_B, BLOCK1_C, BLOCK1_D
+	EQUB BLOCK2_A, BLOCK2_B, BLOCK2_C, BLOCK2_D
+	EQUB BLOCK3_A, BLOCK3_B, BLOCK3_C, BLOCK3_D
+
+; table for each chr, indexed using same offset as colour lookup (0-7)
+.block_table_A	EQUB BLOCK1_A, BLOCK1_A, BLOCK1_A, BLOCK1_A, BLOCK2_A, BLOCK2_A, BLOCK3_A, BLOCK3_A
+.block_table_B	EQUB BLOCK1_B, BLOCK1_B, BLOCK1_B, BLOCK1_B, BLOCK2_B, BLOCK2_B, BLOCK3_B, BLOCK3_B
+.block_table_C	EQUB BLOCK1_C, BLOCK1_C, BLOCK1_C, BLOCK1_C, BLOCK2_C, BLOCK2_C, BLOCK3_C, BLOCK3_C
+.block_table_D	EQUB BLOCK1_D, BLOCK1_D, BLOCK1_D, BLOCK1_D, BLOCK2_D, BLOCK2_D, BLOCK3_D, BLOCK3_D
+	
 
 
 .effect_colour_table
@@ -371,8 +408,38 @@ current_pixel = &70
 	EQUB 144+3	; 6 - Yellow
 	EQUB 144+7	; 7 - White
 
-PRECISION = 4
+.effect_colour_table2	; inverted
+	EQUB 144+7	; 7 - White	
+	EQUB 144+3	; 6 - Yellow
+	EQUB 144+6  ; 5 - Cyan
+	EQUB 144+2	; 4 - Green
+	EQUB 144+5  ; 3 - Magenta
+	EQUB 144+1	; 2 - Red
+	EQUB 144+4	; 1 - Blue
+	EQUB 144+8	; 0 - Black (Conceal)
+
+.effect_colour_table3	; no black
+	EQUB 144+4	; 0 - Blue
+	EQUB 144+1	; 1 - Red
+	EQUB 144+5  ; 2 - Magenta
+	EQUB 144+2	; 3 - Green
+	EQUB 144+6  ; 4 - Cyan
+	EQUB 144+3	; 5 - Yellow
+	EQUB 144+7	; 6 - White
+	EQUB 144+7	; 7 - White
+
+
+PRECISION = 7
 PIXEL_FULL = (2^PRECISION)-1
+
+
+screen_addr = &80
+current_pixel = &82
+speed = &83
+tmp1 = &84
+tmp2 = &85
+index = &86
+
 
 ; Each byte in the array is a 'brightness' value from 0-63 (where 0 is off and 63 is full bright)
 .grid_array
@@ -382,31 +449,36 @@ PIXEL_FULL = (2^PRECISION)-1
 
 ; 
 
+; on entry - A is decay rate
 .grid_fade
 {
-	ldx #GRID_SIZE
+	sta speed
+	ldx #GRID_SIZE-1
 .loop
 	lda grid_array,x
 	beq nextg
 
-	tay
-	dey
-	tya
+	sec
+	sbc speed
+	bpl nowrap
+	lda #0
+.nowrap	
 	sta grid_array,x
 
 .nextg
 	dex
-	bne loop
+	bpl loop
 
 
 	rts
 }
 
 
+; update the colours of each 'pixel' based on current 'level'
 .grid_draw
 {
 	lda #GRID_H
-	sta &8f
+	sta tmp1
 
 	lda #LO(OFFS_ADDR)
 	sta write_colour1+1
@@ -423,18 +495,22 @@ PIXEL_FULL = (2^PRECISION)-1
 .yloop
 	ldx #0
 	lda #GRID_W
-	sta &8e
+	sta tmp2
 .xloop
 	tya
 	pha
-	lda grid_array,y
 
+	lda grid_array,y
 	FOR n,1,PRECISION-3
 		lsr a
 	NEXT
 
 	tay
-	lda effect_colour_table,y
+IF 1
+	lda effect_colour_table,y	; normal
+ELSE
+	lda effect_colour_table2,y	; inverted
+ENDIF
 
 .write_colour1
 	sta OFFS_ADDR,x
@@ -449,7 +525,7 @@ PIXEL_FULL = (2^PRECISION)-1
 	tay
 	iny
 
-	dec &8e
+	dec tmp2
 	bne xloop
 
 	lda write_colour1+1:clc:adc #80:sta write_colour1+1:lda write_colour1+2:adc #0:sta write_colour1+2
@@ -457,11 +533,96 @@ PIXEL_FULL = (2^PRECISION)-1
 
 
 
-	dec &8f
+	dec tmp1
 	bne yloop
 
 	rts
 }
+
+
+IF 0
+
+.grid_draw_shapes
+{
+	lda #GRID_H
+	sta tmp1
+
+	lda #LO(OFFS_ADDR)
+	sta screen_addr+0
+	lda #HI(OFFS_ADDR)
+	sta screen_addr+1
+
+	lda #0
+	sta index
+
+.yloop
+	ldx #0
+	lda #GRID_W
+	sta tmp2
+.xloop
+
+	ldy index
+	lda grid_array,y
+
+	FOR n,1,PRECISION-3
+		lsr a
+	NEXT
+
+
+	tax
+
+	tya
+	pha
+
+	lda block_table_A,x
+	ldy #1
+	sta (screen_addr),y
+
+	lda block_table_B,x
+	ldy #2
+	sta (screen_addr),y
+
+	lda block_table_C,x
+	ldy #41
+	sta (screen_addr),y
+
+	lda block_table_C,x
+	ldy #42
+	sta (screen_addr),y
+
+	pla
+	tay
+
+	inx
+	inx
+	inx
+
+	pla
+	tay
+	iny
+
+	dec tmp2
+	bne xloop
+
+	lda write_colour1+1:clc:adc #80:sta write_colour1+1:lda write_colour1+2:adc #0:sta write_colour1+2
+	lda write_colour2+1:clc:adc #80:sta write_colour2+1:lda write_colour2+2:adc #0:sta write_colour2+2
+
+
+
+	dec tmp1
+	bne yloop
+
+	rts
+}
+
+
+
+ENDIF
+
+
+
+
+
 
 
 .effect_init
@@ -473,11 +634,12 @@ PIXEL_FULL = (2^PRECISION)-1
 
 .effect_update
 {
+	lda #10
 	jsr grid_fade
 	jsr grid_draw
 
 IF 1
-
+	; triggers from frequencies played
 	ldx #0
 	ldy #0
 .floop
@@ -486,24 +648,26 @@ IF 1
 
 	lda #PIXEL_FULL
 	sta grid_array,y
-	sta grid_array+1,y
+;	sta grid_array+1,y
 	
 
 	lda #0
 	sta vgm_freq_array,x
 .nextf
 	iny
-	iny
+;	iny
 
 
 	inx
-	cpx #VGM_FX_num_freqs
+	cpx #GRID_SIZE ;VGM_FX_num_freqs
 	bne floop
 
 
 
 
-ELSE
+ENDIF
+
+IF 0
 	ldx current_pixel
 	lda #PIXEL_FULL
 	sta grid_array,x

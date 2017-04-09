@@ -21,6 +21,13 @@ ORG VGM_PLAYER_ORG
 .vgm_player_start
 
 
+\\ Frequency array for vu-meter effect, plus beat bars for 4 channels
+\\ These two must be contiguous in memory
+.vgm_freq_array				SKIP VGM_FX_num_freqs
+.vgm_chan_array				SKIP VGM_FX_num_channels
+.vgm_player_reg_vals		SKIP SN_REG_MAX		; data values passed to each channel during audio playback (4x channels x pitch + volume)
+
+
 .tmp_var SKIP 1
 .tmp_msg_idx SKIP 1
 
@@ -399,17 +406,14 @@ PSG_STROBE_CLI_INSN = psg_strobe + 25
 ;	LDA #9
 ;	STA vgm_chan_array, Y
 
-	LDA tmp_var
-IF VGM_FX_num_freqs == 16
-	\\ 16 frequency bars, so use top 4 bits
-	LSR A : LSR A
-ELSE
-	\\ 32 frequency bars, so use top 5 bits
-	LSR A
-ENDIF
-	
-	\\ clamp final frequency to array range and invert 
-	AND #VGM_FX_num_freqs-1
+;	LDA tmp_var
+
+	; map 8 bit frequency to frequency trigger table
+	FOR n,1,8-VGM_FX_num_freqs_bits
+		LSR A
+	NEXT
+
+	\\ invert
 	STA tmp_var
 	LDA #VGM_FX_num_freqs-1
 	SEC

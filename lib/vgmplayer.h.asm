@@ -9,7 +9,8 @@
 \ *	Define global constants
 \ ******************************************************************
 
-VGM_FX_num_freqs = 32				; number of VU bars - can be 16 or 32
+VGM_FX_num_freqs_bits = 6
+VGM_FX_num_freqs = 2 ^ VGM_FX_num_freqs_bits				; number of VU bars - can be 16 or 32
 VGM_FX_num_channels = 4				; number of beat bars (one per channel)
 
 
@@ -20,12 +21,6 @@ VGM_PLAYER_sample_rate = 50			; locked to 50Hz
 \ ******************************************************************
 \ *	Declare ZP variables
 \ ******************************************************************
-
-\\ Frequency array for vu-meter effect, plus beat bars for 4 channels
-\\ These two must be contiguous in memory
-.vgm_freq_array				SKIP VGM_FX_num_freqs
-.vgm_chan_array				SKIP VGM_FX_num_channels
-.vgm_player_reg_vals		SKIP SN_REG_MAX		; data values passed to each channel during audio playback (4x channels x pitch + volume)
 
 \\ Copied out of the RAW VGM header
 .vgm_player_packet_count	SKIP 2		; number of packets
