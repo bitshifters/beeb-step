@@ -1,6 +1,7 @@
 
 
 PLAY_MUSIC = TRUE
+_FX_ON_EVENTV = FALSE
 
 SYS_ORB = &fe40
 SYS_ORA = &fe41
@@ -37,6 +38,9 @@ INCLUDE "lib/bbc_utils.h.asm"
 INCLUDE "lib/exomiser.h.asm"
 INCLUDE "lib/vgmplayer.h.asm"
 
+IF _FX_ON_EVENTV
+.event_lock SKIP 1
+ENDIF
 
 ; Define playback frequency - timed off the 1Mhz timer 
 T1_HZ = 1000000
@@ -188,6 +192,12 @@ ENDIF
 
 	jsr effect_init
 
+IF _FX_ON_EVENTV
+	LDX #LO(effect_update)
+	LDY #HI(effect_update)
+	JSR start_eventv
+ENDIF
+
 .loop
 	lda #19:jsr osbyte
 
@@ -225,11 +235,17 @@ ENDIF
 	sta &7c27
 
 
+IF _FX_ON_EVENTV = FALSE
 	jsr effect_update
+ENDIF
 
 	jmp loop
 
 .quit
+
+IF _FX_ON_EVENTV
+	JSR stop_eventv
+ENDIF
 	rts
 }
 
@@ -656,6 +672,16 @@ ENDIF
 
 .effect_update
 {
+IF _FX_ON_EVENTV
+	LDA event_lock
+	BEQ continue
+	RTS
+
+	.continue
+	INC event_lock
+	CLI			; enable interupts so as not to block the music
+ENDIF
+
 	inc timer
 	lda timer
 	cmp #50
@@ -690,8 +716,6 @@ ENDIF
 
 
 .carryon
-
-
 
 
 
@@ -742,12 +766,64 @@ IF 0
 .scan_ok
 ENDIF
 
+IF _FX_ON_EVENTV
+	SEI			; disable interupts
+	DEC event_lock
+ENDIF
 
 	rts
 }
 
 
+\ ******************************************************************
+\ *	Event Vector Routines
+\ ******************************************************************
 
+IF _FX_ON_EVENTV
+.old_eventv
+EQUW 0
+
+.start_eventv				; new event handler in X,Y
+{
+	LDA #0
+	STA event_lock
+
+	\\ Set new Event handler
+	sei
+	LDA EVENTV
+	STA old_eventv
+	LDA EVENTV+1
+	STA old_eventv+1
+
+	stx EVENTV
+	sty EVENTV+1
+	cli
+	
+	\\ Enable VSYNC event.
+	lda #14
+	ldx #4
+	jsr osbyte
+	rts
+}
+	
+.stop_eventv
+{
+	\\ Disable VSYNC event.
+	lda #13
+	ldx #4
+	jsr osbyte
+
+	\\ Reset old Event handler
+	SEI
+	LDA old_eventv
+	STA EVENTV
+	LDA old_eventv+1
+	STA EVENTV+1
+	CLI 
+
+	rts
+}
+ENDIF
 
 .end
 
