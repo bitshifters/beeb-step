@@ -572,9 +572,6 @@ IF 0
 
 ELSE
 
-.grid_index_offset
-EQUB 0
-
 .grid_draw
 {
 	lda #GRID_H
@@ -635,12 +632,6 @@ EQUB 0
 
 	dec tmp1
 	bne yloop
-
-	CLC
-	LDA grid_index_offset
-	ADC #0
-	AND #(VGM_FX_num_freqs - 1)
-	STA grid_index_offset
 
 	rts
 }
