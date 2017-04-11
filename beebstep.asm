@@ -702,7 +702,7 @@ ENDIF
 
 IF 1
 	; triggers from frequencies played
-	ldx #0
+	ldx #13						; can start upto 27 entries into vgm_freq_array
 	ldy #0
 .floop
 	lda vgm_freq_array,x
@@ -719,11 +719,13 @@ IF 1
 	iny
 ;	iny
 
+	cpy #GRID_SIZE
+	bcs done_floop				; otherwise we overflow grid_array
 
 	inx
-	cpx #GRID_SIZE ;VGM_FX_num_freqs
-	bne floop
-
+	cpx #VGM_FX_num_freqs		; otherwise we overflow vgm_freq_array
+	bcc floop
+.done_floop
 
 
 

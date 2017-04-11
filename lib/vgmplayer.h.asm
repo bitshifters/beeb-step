@@ -9,7 +9,7 @@
 \ *	Define global constants
 \ ******************************************************************
 
-VGM_FX_num_freqs_bits = 6
+VGM_FX_num_freqs_bits = 7
 VGM_FX_num_freqs = 2 ^ VGM_FX_num_freqs_bits				; number of VU bars - can be 16 or 32
 VGM_FX_num_channels = 4				; number of beat bars (one per channel)
 
