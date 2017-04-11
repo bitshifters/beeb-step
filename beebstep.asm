@@ -37,6 +37,17 @@ INCLUDE "lib/bbc_utils.h.asm"
 INCLUDE "lib/exomiser.h.asm"
 INCLUDE "lib/vgmplayer.h.asm"
 
+\\ Kieran scrolltext
+
+.writeptr				SKIP 2
+.plot_char_x			SKIP 1			; x position in chars absolute
+.scrtext_col			SKIP 1
+.scrtext_idx			SKIP 1
+.scrtext_y_idx			SKIP 1
+.scrtext_x_offset		SKIP 1
+.scrtext_tmp_idx		SKIP 1
+.scrtext_tmp_y			SKIP 1
+
 
 ; Define playback frequency - timed off the 1Mhz timer 
 T1_HZ = 1000000
@@ -45,8 +56,8 @@ RHZ = T1_HZ / SAMP_HZ
 
 
 
-ORG &1100
-GUARD &3000
+ORG &E00
+GUARD &3C00
 
 .start
 
@@ -187,6 +198,7 @@ ENDIF
 
 
 	jsr effect_init
+	JSR scrtext_init
 
 .loop
 	lda #19:jsr osbyte
@@ -225,7 +237,9 @@ ENDIF
 	sta &7c27
 
 
-	jsr effect_update
+;	jsr effect_update
+	JSR scrtext_erase_screen
+	JSR scrtext_poll_whole
 
 	jmp loop
 
@@ -751,6 +765,340 @@ ENDIF
 
 
 
+
+
+\ ******************************************************************
+\ *	Kieran messing about with scrolltexts (as always)
+\ ******************************************************************
+
+.scrtext_init
+{
+	LDA #0
+	STA scrtext_col
+	STA scrtext_idx
+	STA scrtext_y_idx
+
+	.return
+	RTS
+}
+
+.scrtext_poll_whole
+{
+	\\ First character column
+	LDA #2
+	STA plot_char_x
+
+	LDA scrtext_y_idx
+	STA scrtext_tmp_y
+
+	\\ Get message character index
+	LDY scrtext_idx
+	.try_again
+	STY scrtext_tmp_idx
+	LDX scrtext_message, Y
+	BNE not_eom
+
+	LDY #0
+	STY scrtext_idx
+	BEQ try_again
+	.not_eom
+
+	\\ Look up our font data
+	LDA font_table_LO, X
+	STA read_sprite_ptr + 1				; ** MODIFIES CODE
+	LDA font_table_HI, X
+	STA read_sprite_ptr + 2				; ** MODIFIES CODE
+
+	\\ Get index into our sprite data for column
+
+	\\ Get texel y for this column
+	LDX scrtext_tmp_y
+	LDA whole_y_idx, X
+	TAY	
+	CLC
+	ADC #1
+	AND #63
+	STA whole_y_idx, X
+
+	LDA scrtext_y_table, Y				; 4c - could increment this address directly
+	TAY									; 2c
+
+	\\ Get y offset
+	LDA mod3_table, Y					; 4c
+	STA scrtext_y_offset + 1			; 4c - ** MODIFIES CODE
+
+	\\ Get char y
+	LDA div3_table, Y					; 4c - could go straight from texel Y to screen address
+	TAY									; 2c
+
+	\\ Write address to screen
+	CLC									; 2c
+	LDA mode7_row_addr_LO, Y			; 4c
+	ADC plot_char_x						; 3c
+	STA writeptr						; 3c
+	LDA mode7_row_addr_HI, Y			; 4c
+	ADC #0								; 2c
+	STA writeptr+1						; 3c
+
+	\\ Index into our sprite table
+	LDX scrtext_col
+
+	.char_x_loop
+
+	\\ Copy a column of sprite data
+	LDA #0								; 2c
+
+	.col_loop
+	TAY									; 2c
+
+	\\ Get left column of sprite data
+	.read_sprite_ptr
+	LDA font0_data, X					; 4c
+
+	\\ Next sprite data byte
+	INX									; 2c
+
+	\\ Turn this into MODE 7 gfx code for left column
+	.scrtext_y_offset
+	ORA #&00							; where left_header = yy0 00000 - ** SELF-MODIFIED CODE
+	STA lookup_addr + 1					; 2c + 4c - ** MODIFIES CODE
+	.lookup_addr
+	LDA half_column_lookup				; 4c - ** SELF-MODIFIED CODE
+
+	\\ Write 3 pixels to screen
+	ORA (writeptr), Y					; 5c
+	STA (writeptr), Y					; 6c
+
+	\\ Next MODE 7 row
+	TYA									; 2c
+;	CLC									; we know carry is clear because carry is never touched
+	ADC #MODE7_char_width				; 2c
+
+	\\ Can probably use a lookup table here for Y indexed by X (0 - 96)
+
+	\\ Have we written 6 bytes?
+	CMP #(6 * MODE7_char_width)			; 2c
+	BCC col_loop						; 3c
+
+	\\ Cycle count 41c per sprite byte written = 41c * 6 = 246c
+	\\ Count now 38c..
+
+	.done_col_loop
+	\\ Have we written entire char?
+	CPX #(6 * 16)						; 2c 96 bytes for full font glyph
+	BCC cont_same_char					; 3c
+
+	\\ Next char
+	\\ Get message character index
+	INC scrtext_tmp_idx					; 5c
+	LDY scrtext_tmp_idx					; 3c
+	.next_char
+	LDX scrtext_message, Y				; 4c
+	CPX #0								; 2c
+	BNE not_zero						; 3c
+
+	LDY #0								; 2c
+	STY scrtext_tmp_idx					; 3c
+	BEQ next_char						; 3c
+
+	.not_zero
+	\\ Look up our font data
+	LDA font_table_LO, X				; 4c
+	STA read_sprite_ptr + 1				; 4c
+	LDA font_table_HI, X				; 4c
+	STA read_sprite_ptr + 2				; 4c
+
+	\\ Get texel y for this column
+	CLC
+	LDA scrtext_tmp_y
+	ADC #1
+	AND #&7
+	STA scrtext_tmp_y
+	TAX
+
+	LDA whole_y_idx, X
+	TAY	
+	CLC
+	ADC #1
+	AND #63
+	STA whole_y_idx, X
+
+	LDA scrtext_y_table, Y				; 4c - could increment this address directly
+	TAY									; 2c
+
+	\\ Get y offset
+	LDA scrtext_y_offset + 1			; 4c
+	AND #&20
+	ORA mod3_table, Y					; 4c
+	STA scrtext_y_offset + 1			; 4c - ** MODIFIES CODE
+
+	\\ Get char y
+	LDA div3_table, Y					; 4c - could go straight from texel Y to screen address
+	TAY									; 2c
+
+	\\ Write address to screen
+	CLC									; 2c
+	LDA mode7_row_addr_LO, Y			; 4c
+	ADC plot_char_x						; 3c
+	STA writeptr						; 3c
+	LDA mode7_row_addr_HI, Y			; 4c
+	ADC #0								; 2c
+	STA writeptr+1						; 3c
+
+	\\ Get index into our sprite data for column
+	LDX #0								; 2c
+
+	.cont_same_char
+	\\ Next column
+	LDA scrtext_y_offset + 1
+	EOR #&20							; 2c
+	STA scrtext_y_offset + 1
+
+	AND #&20							; 2c
+	BNE jump_char_x_loop				; 3c
+
+	\\ Left side means new char
+	INC plot_char_x						; 5c
+
+	\\ New char means move writeptr
+	{
+		INC writeptr
+		BNE no_carry
+		INC writeptr+1
+		.no_carry
+	}
+
+	LDA plot_char_x						; 3c
+	CMP #MODE7_char_width				; 2c
+	BCS done_screen
+
+	.jump_char_x_loop
+	JMP char_x_loop
+
+	\\ 26c overhead for a new column + 54c from before the loop...
+	\\ One glyph draw = 16 * (26c + 54c + 246c) = 16 * 326c = 5216c + 43c for new character
+	\\ 72 columns = 4.5 glyphs = 72 * (26c + 54c + 246c) + 4 * 43c = 23472c + 172c = 23644c ~= 59% of frame :(
+
+	.done_screen
+	\\ Increment column for next time
+	CLC									; 2c
+	LDA scrtext_col						; 3c
+	ADC #6								; 2c
+
+	\\ Have we reached end of glyph?
+	CMP #(6 * 16)						; 2c
+	BCC return							; 3c
+
+	\\ Next char in message
+	INC scrtext_idx						; 5c
+
+	CLC
+	LDA scrtext_y_idx
+	ADC #1
+	AND #&7
+	STA scrtext_y_idx
+
+	\\ Start of column
+	LDA #0								; 2c
+
+	.return
+	STA scrtext_col						; 3c
+	RTS
+}
+
+.scrtext_erase_screen
+{
+	LDA #32
+	FOR y,OFFS_Y,OFFS_Y+(GRID_H*PIXEL_H)-1,1			; 0,22
+	FOR x,OFFS_X,MODE7_char_width-1,1
+	STA MODE7_base_addr + (y * MODE7_char_width) + x
+	NEXT
+	NEXT
+
+	.return
+	RTS
+}
+
+.mod3_table					; wasteful to have all 256 entries but safer for now
+FOR n, 0, 74, 1
+	EQUB (n MOD 3) * 64		; shift this up to top two bits to avoid shifting for use in lookup table
+NEXT
+
+ALIGN &100
+.div3_table					; wasteful to have all 256 entries but safer for now
+FOR n, 0, 74, 1
+	EQUB (n DIV 3)
+NEXT
+
+ALIGN &100
+.half_column_lookup
+FOR n, 0, 192, 1
+	a = n AND 1
+	b = (n AND 2) / 2
+	c = (n AND 4) / 4
+	d = (n AND 8) / 8
+	e = (n AND 16) / 16
+
+	x = (n AND 32) / 32
+	yy = (n AND 192) / 64
+
+	IF x = 0
+
+		IF yy = 0
+			EQUB 32 + a * 16 + b * 4 + c * 1
+		ELIF yy = 1
+			EQUB 32 + b * 16 + c * 4 + d * 1
+		ELSE
+			EQUB 32 + c * 16 + d * 4 + e * 1
+		ENDIF
+
+	ELSE
+
+		IF yy = 0
+			EQUB 32 + a * 64 + b * 8 + c * 2
+		ELIF yy = 1
+			EQUB 32 + b * 64 + c * 8 + d * 2
+		ELSE
+			EQUB 32 + c * 64 + d * 8 + e * 2
+		ENDIF
+
+	ENDIF
+NEXT
+
+.scrtext_y_table			; don't need 256 entries but easier for now
+FOR n, 0, 63, 1
+	EQUB 40 + 10 * SIN(PI * n / 32)
+NEXT
+
+.scrtext_message
+
+	MAPCHAR '!', 1
+	MAPCHAR ',', 12
+	MAPCHAR '-', 13
+	MAPCHAR '.', 14
+	MAPCHAR '0','9',16
+	MAPCHAR '?', 31
+	MAPCHAR ' ', 32
+	MAPCHAR 'A','Z',33
+	MAPCHAR 'a','z',33
+
+EQUS "HELLO WORLD! THIS IS A MESSAGE... 0123456789?-,.   "
+EQUB 0
+
+.whole_y_idx
+EQUB 0, 0, 0, 0, 0, 0, 0, 0
+
+.mode7_row_addr_LO
+FOR n, 0, MODE7_char_height-1, 1
+EQUB LO(MODE7_base_addr + n * MODE7_char_width)
+NEXT
+
+.mode7_row_addr_HI
+FOR n, 0, MODE7_char_height-1, 1
+EQUB HI(MODE7_base_addr + n * MODE7_char_width)
+NEXT
+
+INCLUDE "font2.6502"
 
 .end
 
