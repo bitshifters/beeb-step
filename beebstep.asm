@@ -572,6 +572,9 @@ IF 0
 
 ELSE
 
+.grid_index_offset
+EQUB 0
+
 .grid_draw
 {
 	lda #GRID_H
@@ -623,6 +626,7 @@ ELSE
 	iny
 
 	inc index
+
 	dec tmp2
 	bne xloop
 
@@ -631,6 +635,12 @@ ELSE
 
 	dec tmp1
 	bne yloop
+
+	CLC
+	LDA grid_index_offset
+	ADC #0
+	AND #(VGM_FX_num_freqs - 1)
+	STA grid_index_offset
 
 	rts
 }
@@ -702,7 +712,7 @@ ENDIF
 
 IF 1
 	; triggers from frequencies played
-	ldx #0
+	ldx #13
 	ldy #0
 .floop
 	lda vgm_freq_array,x
@@ -719,12 +729,14 @@ IF 1
 	iny
 ;	iny
 
+	CPY #GRID_SIZE
+	BCS done_floop
 
 	inx
-	cpx #GRID_SIZE ;VGM_FX_num_freqs
+	cpx #VGM_FX_num_freqs		; GRID_SIZE causes a memory scribble!
 	bne floop
 
-
+	.done_floop
 
 
 ENDIF
