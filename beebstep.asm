@@ -37,6 +37,16 @@ INCLUDE "lib/bbc_utils.h.asm"
 INCLUDE "lib/exomiser.h.asm"
 INCLUDE "lib/vgmplayer.h.asm"
 
+.fx_anim_ptr	SKIP 2
+.fx_anim_idx	SKIP 1
+.fx_anim_x		SKIP 1
+.fx_anim_y		SKIP 1
+.fx_anim_dx		SKIP 1
+.fx_anim_dy		SKIP 1
+.fx_anim_num_it SKIP 1
+.fx_anim_num_px	SKIP 1
+.fx_anim_frm_d	SKIP 1
+.fx_anim_frm_c	SKIP 1
 
 ; Define playback frequency - timed off the 1Mhz timer 
 T1_HZ = 1000000
@@ -187,6 +197,9 @@ ENDIF
 
 
 	jsr effect_init
+	LDX #LO(anim_data_snake_v)
+	LDY #HI(anim_data_snake_v)
+	JSR fx_anim_init
 
 .loop
 	lda #19:jsr osbyte
@@ -703,7 +716,8 @@ ENDIF
 
 \\	JSR fx_frequency
 \\	JSR fx_scan
-	JSR fx_lines
+\\	JSR fx_lines
+	JSR fx_anim_update
 
 
 	rts
@@ -836,6 +850,157 @@ FX_LINES_SPEED = 2
 	RTS	
 }
 
+
+\\ anim data something like:
+\\ start x,y
+\\ what to do at end?  finish, loop, reverse?
+\\ num iterations of packet - 0=end of stream, could use flags for end if reach X/Y bounds?
+\\ pixel delta x, delta y - pack 4:4 - can't as want negatives
+\\ pixel iterations per frame - 
+\\ frame delay - pack 4:4
+
+.fx_anim_init
+{
+	STX fx_anim_ptr
+	STY fx_anim_ptr+1
+
+	LDY #0
+
+	LDA (fx_anim_ptr), Y
+	STA fx_anim_x
+	INY
+
+	LDA (fx_anim_ptr), Y
+	STA fx_anim_y
+	INY
+
+	JSR fx_anim_init_packet
+	STY fx_anim_idx
+
+	RTS
+}
+
+.fx_anim_init_packet
+{
+	LDA (fx_anim_ptr), Y
+	STA fx_anim_num_it			; number of times to iterate
+	INY
+
+	LDA (fx_anim_ptr), Y
+	STA fx_anim_dx
+	INY
+
+	LDA (fx_anim_ptr), Y
+	STA fx_anim_dy
+	INY
+
+	LDA (fx_anim_ptr), Y
+	STA fx_anim_num_px
+	INY
+
+	LDA (fx_anim_ptr), Y
+	STA fx_anim_frm_d
+	INY
+
+	LDA	#0
+	STA fx_anim_frm_c
+
+	RTS
+}
+
+.fx_anim_get_next
+{
+	LDY fx_anim_idx
+	LDA (fx_anim_ptr), Y
+	BNE continue_seq
+
+	LDX fx_anim_ptr
+	LDY fx_anim_ptr+1
+	JMP fx_anim_init
+
+	.continue_seq
+	JSR fx_anim_init_packet
+	STY fx_anim_idx
+
+	RTS
+}
+
+.fx_anim_update
+{
+	LDY fx_anim_frm_c
+	BNE wait_count
+
+	\\ How many iterations
+	LDA fx_anim_num_it
+	BNE do_anim
+
+	JSR fx_anim_get_next
+
+	.do_anim
+
+	\\ Do the anim
+	LDY fx_anim_num_px			; this many pixels
+	LDA fx_anim_x
+	LDX fx_anim_y
+
+	.loop
+
+	\\ Draw pixel
+	SET_PIXEL_AX				; need to clip
+
+	CLC
+	LDA fx_anim_y
+	ADC fx_anim_dy
+	STA fx_anim_y
+	TAX
+
+	CLC
+	LDA fx_anim_x
+	ADC fx_anim_dx
+	STA fx_anim_x
+
+	DEY
+	BNE loop
+
+	LDY fx_anim_frm_d
+	.wait_count
+	DEY
+	STY fx_anim_frm_c
+
+	DEC fx_anim_num_it
+
+	.return
+	RTS
+}
+
+.anim_data_snake_v
+EQUB 0, 0				; start at 0,0
+EQUB 6, 0, 1, 1, 1		; 7x (0,1) @ 1 - down 7
+EQUB 1, 1, 0, 1, 1		; 1x (1,0) @ 1 - across 1
+EQUB 6, 0, -1, 1, 1		; 7x (0,-1) @ 1 - up 7
+EQUB 1, 1, 0, 1, 1		; 1x (1,0) @ 1 - across 1
+EQUB 6, 0, 1, 1, 1		; 7x (0,1) @ 1 - down 7
+EQUB 1, 1, 0, 1, 1		; 1x (1,0) @ 1 - across 1
+EQUB 6, 0, -1, 1, 1		; 7x (0,-1) @ 1 - up 7
+EQUB 1, 1, 0, 1, 1		; 1x (1,0) @ 1 - across 1
+EQUB 6, 0, 1, 1, 1		; 7x (0,1) @ 1 - down 7
+EQUB 1, 1, 0, 1, 1		; 1x (1,0) @ 1 - across 1
+EQUB 6, 0, -1, 1, 1		; 7x (0,-1) @ 1 - up 7
+EQUB 1, 1, 0, 1, 1		; 1x (1,0) @ 1 - across 1
+EQUB 6, 0, 1, 1, 1		; 7x (0,1) @ 1 - down 7
+EQUB 1, 1, 0, 1, 1		; 1x (1,0) @ 1 - across 1
+EQUB 6, 0, -1, 1, 1		; 7x (0,-1) @ 1 - up 7
+EQUB 1, 1, 0, 1, 1		; 1x (1,0) @ 1 - across 1
+EQUB 6, 0, 1, 1, 1		; 7x (0,1) @ 1 - down 7
+EQUB 1, 1, 0, 1, 1		; 1x (1,0) @ 1 - across 1
+EQUB 6, 0, -1, 1, 1		; 7x (0,-1) @ 1 - up 7
+EQUB 1, 1, 0, 1, 1		; 1x (1,0) @ 1 - across 1
+EQUB 6, 0, 1, 1, 1		; 7x (0,1) @ 1 - down 7
+EQUB 1, 1, 0, 1, 1		; 1x (1,0) @ 1 - across 1
+EQUB 6, 0, -1, 1, 1		; 7x (0,-1) @ 1 - up 7
+EQUB 1, 1, 0, 1, 1		; 1x (1,0) @ 1 - across 1
+EQUB 6, 0, 1, 1, 1		; 7x (0,1) @ 1 - down 7
+EQUB 0					; end
 
 .grid_y_lookup
 FOR n,0,GRID_H,1
