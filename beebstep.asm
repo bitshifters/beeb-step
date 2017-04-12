@@ -700,9 +700,22 @@ ENDIF
 	jsr grid_fade
 	jsr grid_draw
 
-IF 1
+
+\\	JSR fx_frequency
+\\	JSR fx_scan
+	JSR fx_lines
+
+
+	rts
+}
+
+
+FX_FREQUENCY_START = 13
+
+.fx_frequency
+{
 	; triggers from frequencies played
-	ldx #13						; can start upto 27 entries into vgm_freq_array
+	ldx #FX_FREQUENCY_START						; can start upto 27 entries into vgm_freq_array
 	ldy #0
 .floop
 	lda vgm_freq_array,x
@@ -727,29 +740,107 @@ IF 1
 	bcc floop
 .done_floop
 
-
-
-ENDIF
-
-IF 0
-	ldx current_pixel
-	lda #PIXEL_FULL
-	sta grid_array,x
-	inc current_pixel
-	lda current_pixel
-	cmp #GRID_SIZE
-	bne scan_ok
-	lda #0
-	sta current_pixel
-.scan_ok
-ENDIF
-
-
-	rts
+	RTS
 }
 
 
+FX_SCAN_SPEED = 4
+.fx_scan_pos EQUB 0
 
+.fx_scan
+{
+	LDY #FX_SCAN_SPEED
+	LDX fx_scan_pos
+	LDA #PIXEL_FULL
+	.loop
+	STA grid_array, X
+	INX
+	CPX #GRID_SIZE
+	BCC x_ok
+	LDX #0
+	.x_ok
+	DEY
+	BNE loop
+	STX fx_scan_pos
+
+	.return
+	RTS
+}
+
+MACRO SET_PIXEL_AX			; (X,Y)
+{
+	CLC
+	ADC grid_y_lookup, X
+	TAX
+	LDA #PIXEL_FULL
+	STA grid_array, X
+}
+ENDMACRO
+
+FX_LINES_SPEED = 2
+.fx_lines_x EQUB 0
+.fx_lines_d EQUB 0
+
+.fx_lines
+{
+	LDY fx_lines_d
+	BNE return
+
+	LDX fx_lines_x
+	JSR fx_line_x
+
+	LDX fx_lines_x
+	INX
+	CPX #GRID_W
+	BNE x_ok
+	LDX #0
+	.x_ok
+	STX fx_lines_x
+	LDY #FX_LINES_SPEED
+
+	.return
+	DEY
+	STY fx_lines_d
+	RTS
+}
+
+.fx_line_y
+{
+	LDX grid_y_lookup, Y
+	LDY #GRID_W
+	LDA #PIXEL_FULL
+	.loop
+	STA grid_array, X
+	INX
+	DEY
+	BNE loop
+
+	.return
+	RTS	
+}
+
+.fx_line_x
+{
+	LDY #GRID_H
+	CLC
+	.loop
+	LDA #PIXEL_FULL
+	STA grid_array, X
+	TXA
+	ADC #GRID_W
+	TAX
+	DEY
+	BNE loop
+
+	.return
+	RTS	
+}
+
+
+.grid_y_lookup
+FOR n,0,GRID_H,1
+EQUB n * GRID_W
+NEXT
 
 .end
 
