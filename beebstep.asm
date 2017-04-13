@@ -47,6 +47,8 @@ INCLUDE "lib/vgmplayer.h.asm"
 .fx_anim_num_px		SKIP 1
 .fx_anim_frm_d		SKIP 1
 .fx_anim_frm_c		SKIP 1
+.fx_anim_num_loops	SKIP 1
+.fx_anim_loop_point	SKIP 1
 
 ; Define playback frequency - timed off the 1Mhz timer 
 T1_HZ = 1000000
@@ -197,8 +199,8 @@ ENDIF
 
 
 	jsr effect_init
-	LDX #LO(anim_data_scan)
-	LDY #HI(anim_data_scan)
+	LDX #LO(anim_data_lines_y)
+	LDY #HI(anim_data_lines_y)
 	JSR fx_anim_init
 
 .loop
@@ -758,34 +760,11 @@ FX_FREQUENCY_START = 13
 }
 
 
-FX_SCAN_SPEED = 4
-.fx_scan_pos EQUB 0
-
-.fx_scan
-{
-	LDY #FX_SCAN_SPEED
-	LDX fx_scan_pos
-	LDA #PIXEL_FULL
-	.loop
-	STA grid_array, X
-	INX
-	CPX #GRID_SIZE
-	BCC x_ok
-	LDX #0
-	.x_ok
-	DEY
-	BNE loop
-	STX fx_scan_pos
-
-	.return
-	RTS
-}
-
 MACRO SET_PIXEL_AX			; (X,Y)
 {
 	CMP #GRID_W
 	BCS clip
-	CPX #GRID_W
+	CPX #GRID_H
 	BCS clip
 	\\ carry is clear
 	ADC grid_y_lookup, X
@@ -796,32 +775,6 @@ MACRO SET_PIXEL_AX			; (X,Y)
 }
 ENDMACRO
 
-FX_LINES_SPEED = 2
-.fx_lines_x EQUB 0
-.fx_lines_d EQUB 0
-
-.fx_lines
-{
-	LDY fx_lines_d
-	BNE return
-
-	LDX fx_lines_x
-	JSR fx_line_x
-
-	LDX fx_lines_x
-	INX
-	CPX #GRID_W
-	BNE x_ok
-	LDX #0
-	.x_ok
-	STX fx_lines_x
-	LDY #FX_LINES_SPEED
-
-	.return
-	DEY
-	STY fx_lines_d
-	RTS
-}
 
 .fx_line_y
 {
@@ -862,6 +815,7 @@ FX_LINES_SPEED = 2
 	STY fx_anim_ptr+1
 
 	LDY #0
+	STY fx_anim_num_loops
 
 	LDA (fx_anim_ptr), Y
 	STA fx_anim_x
@@ -871,15 +825,50 @@ FX_LINES_SPEED = 2
 	STA fx_anim_y
 	INY
 	
-	JSR fx_anim_init_step
 	STY fx_anim_idx
+	JSR fx_anim_init_step
 
 	RTS
 }
 
+.fx_anim_init_loop
+{
+	\\ Next byte is number of loops
+	INY
+
+	LDA (fx_anim_ptr), Y
+	BNE init_next_step
+
+	\\ Hit end of loop
+
+	\\ Done all loops?
+	SEC
+	LDA fx_anim_num_loops
+	SBC #1
+	BEQ init_next_step
+
+	\\ If not reset our index
+	LDY fx_anim_loop_point
+
+	.init_next_step
+	STA fx_anim_num_loops
+	STY fx_anim_loop_point
+
+	INY
+	STY fx_anim_idx
+}
+\\ DROP THROUGH TO INITIALISE FIRST STEP OF LOOP!
+
 .fx_anim_init_step
 {
+	LDY fx_anim_idx
+
 	LDA (fx_anim_ptr), Y
+	BEQ return					; end of sequence
+
+	CMP #&FF					; special iteration = loop
+	BEQ fx_anim_init_loop
+
 	STA fx_anim_num_it			; number of times to iterate
 	INY
 
@@ -902,23 +891,23 @@ FX_LINES_SPEED = 2
 
 	STA fx_anim_frm_c
 
+	STY fx_anim_idx
+	.return
 	RTS
 }
 
 .fx_anim_get_next_step
 {
-	LDY fx_anim_idx
-	LDA (fx_anim_ptr), Y
+	JSR fx_anim_init_step
 	BNE continue_seq
+
+	\\ Currently just resets on end of sequence
 
 	LDX fx_anim_ptr
 	LDY fx_anim_ptr+1
 	JMP fx_anim_init
 
 	.continue_seq
-	JSR fx_anim_init_step
-	STY fx_anim_idx
-
 	RTS
 }
 
@@ -993,6 +982,10 @@ FX_LINES_SPEED = 2
 \\ shouldn't draw on init - only draw in update
 \\ delay first then draw current pixel then update position
 
+MACRO ANIM_START x, y
+	EQUB x, y
+ENDMACRO
+
 MACRO ANIM_STEP iterations, delta_x, delta_y, pixels, delay
 	EQUB iterations, delta_x, delta_y, (pixels * 16 + delay)
 ENDMACRO
@@ -1001,37 +994,31 @@ MACRO ANIM_STEP_1 iterations, delta_x, delta_y
 	EQUB iterations, delta_x, delta_y, 17			; 1 + 1
 ENDMACRO
 
+MACRO ANIM_LOOP loops
+	EQUB &FF, loops
+ENDMACRO
+
+MACRO ANIM_LOOP_END
+	EQUB &FF, 0
+ENDMACRO
+
+MACRO ANIM_END
+	EQUB 0
+ENDMACRO
+
 .anim_data_snake_v
-EQUB 0, 0				; start at 0,0
-ANIM_STEP 6, 0, 1, 1, 1		; 7x (0,1) @ 1 - down 7
-ANIM_STEP 1, 1, 0, 1, 1		; 1x (1,0) @ 1 - across 1
-ANIM_STEP 6, 0, -1, 1, 1	; 7x (0,-1) @ 1 - up 7
-ANIM_STEP 1, 1, 0, 1, 1		; 1x (1,0) @ 1 - across 1
-ANIM_STEP 6, 0, 1, 1, 1		; 7x (0,1) @ 1 - down 7
-ANIM_STEP 1, 1, 0, 1, 1		; 1x (1,0) @ 1 - across 1
-ANIM_STEP 6, 0, -1, 1, 1	; 7x (0,-1) @ 1 - up 7
-ANIM_STEP 1, 1, 0, 1, 1		; 1x (1,0) @ 1 - across 1
-ANIM_STEP 6, 0, 1, 1, 1		; 7x (0,1) @ 1 - down 7
-ANIM_STEP 1, 1, 0, 1, 1		; 1x (1,0) @ 1 - across 1
-ANIM_STEP 6, 0, -1, 1, 1	; 7x (0,-1) @ 1 - up 7
-ANIM_STEP 1, 1, 0, 1, 1		; 1x (1,0) @ 1 - across 1
-ANIM_STEP 6, 0, 1, 1, 1		; 7x (0,1) @ 1 - down 7
-ANIM_STEP 1, 1, 0, 1, 1		; 1x (1,0) @ 1 - across 1
-ANIM_STEP 6, 0, -1, 1, 1	; 7x (0,-1) @ 1 - up 7
-ANIM_STEP 1, 1, 0, 1, 1		; 1x (1,0) @ 1 - across 1
-ANIM_STEP 6, 0, 1, 1, 1		; 7x (0,1) @ 1 - down 7
-ANIM_STEP 1, 1, 0, 1, 1		; 1x (1,0) @ 1 - across 1
-ANIM_STEP 6, 0, -1, 1, 1	; 7x (0,-1) @ 1 - up 7
-ANIM_STEP 1, 1, 0, 1, 1		; 1x (1,0) @ 1 - across 1
-ANIM_STEP 6, 0, 1, 1, 1		; 7x (0,1) @ 1 - down 7
-ANIM_STEP 1, 1, 0, 1, 1		; 1x (1,0) @ 1 - across 1
-ANIM_STEP 6, 0, -1, 1, 1	; 7x (0,-1) @ 1 - up 7
-ANIM_STEP 1, 1, 0, 1, 1		; 1x (1,0) @ 1 - across 1
-ANIM_STEP 7, 0, 1, 1, 1		; 7x (0,1) @ 1 - down 7
-EQUB 0					; end
+ANIM_START 0, 0
+ANIM_LOOP 6
+ANIM_STEP 6, 0, 1, 1, 1
+ANIM_STEP 1, 1, 0, 1, 1
+ANIM_STEP 6, 0, -1, 1, 1
+ANIM_STEP 1, 1, 0, 1, 1
+ANIM_LOOP_END
+ANIM_STEP 7, 0, 1, 1, 1
+ANIM_END
 
 .anim_data_spiral
-EQUB 0, 0
+ANIM_START 0, 0
 ANIM_STEP_1 12, 1, 0
 ANIM_STEP_1 6, 0, 1
 ANIM_STEP_1 12, -1, 0
@@ -1045,41 +1032,34 @@ ANIM_STEP_1 2, 0, 1
 ANIM_STEP_1 8, -1, 0
 ANIM_STEP_1 1, 0, -1
 ANIM_STEP_1 8, 1, 0
-EQUB 0
+ANIM_END
 
 .anim_data_scan
-EQUB 0, 0
+ANIM_START 0, 0
+ANIM_LOOP 6
 ANIM_STEP_1 12, 1, 0
 ANIM_STEP_1 1, -12, 1
-ANIM_STEP_1 12, 1, 0
-ANIM_STEP_1 1, -12, 1
-ANIM_STEP_1 12, 1, 0
-ANIM_STEP_1 1, -12, 1
-ANIM_STEP_1 12, 1, 0
-ANIM_STEP_1 1, -12, 1
-ANIM_STEP_1 12, 1, 0
-ANIM_STEP_1 1, -12, 1
-ANIM_STEP_1 12, 1, 0
-ANIM_STEP_1 1, -12, 1
+ANIM_LOOP_END
 ANIM_STEP_1 13, 1, 0
-EQUB 0
+ANIM_END
 
-.anim_data_line_x
-EQUB 0, 0
+.anim_data_lines_x
+ANIM_START 0, 0
+ANIM_LOOP 6
 ANIM_STEP 1, 1, 0, 13, 1
 ANIM_STEP_1 1, -13, 1
+ANIM_LOOP_END
 ANIM_STEP 1, 1, 0, 13, 1
-ANIM_STEP_1 1, -13, 1
-ANIM_STEP 1, 1, 0, 13, 1
-ANIM_STEP_1 1, -13, 1
-ANIM_STEP 1, 1, 0, 13, 1
-ANIM_STEP_1 1, -13, 1
-ANIM_STEP 1, 1, 0, 13, 1
-ANIM_STEP_1 1, -13, 1
-ANIM_STEP 1, 1, 0, 13, 1
-ANIM_STEP_1 1, -13, 1
-ANIM_STEP 1, 1, 0, 13, 1
-EQUB 0
+ANIM_END
+
+.anim_data_lines_y
+ANIM_START 0, 0
+ANIM_LOOP 12
+ANIM_STEP 1, 0, 1, 7, 1
+ANIM_STEP 1, 1, -7, 1, 1
+ANIM_LOOP_END
+ANIM_STEP 1, 0, 1, 7, 1
+ANIM_END
 
 
 .grid_y_lookup
