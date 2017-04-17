@@ -50,6 +50,7 @@ INCLUDE "lib/vgmplayer.h.asm"
 .fx_anim_num_loops	SKIP 1
 .fx_anim_loop_point	SKIP 1
 
+
 ; Define playback frequency - timed off the 1Mhz timer 
 T1_HZ = 1000000
 SAMP_HZ = 392 ; 294 ; 350 ;6250
@@ -199,8 +200,8 @@ ENDIF
 
 
 	jsr effect_init
-	LDX #LO(anim_data_lines_y)
-	LDY #HI(anim_data_lines_y)
+	LDX #LO(anim_data_scan)
+	LDY #HI(anim_data_scan)
 	JSR fx_anim_init
 
 .loop
@@ -775,6 +776,137 @@ MACRO SET_PIXEL_AX			; (X,Y)
 }
 ENDMACRO
 
+MACRO SET_PIXEL_AX_MIRROR_OPP			; (X,Y)
+{
+	CMP #GRID_W
+	BCS clip
+	CPX #GRID_H
+	BCS clip
+	\\ carry is clear
+	ADC grid_y_lookup, X
+	TAX
+	LDA #PIXEL_FULL
+	STA grid_array, X
+
+	\\ Mirror
+	TXA
+	SEC
+	SBC #GRID_SIZE
+	EOR #&FF
+	TAX
+	LDA #PIXEL_FULL
+	STA grid_array, X
+	.clip
+}
+ENDMACRO
+
+MACRO SET_PIXEL_AX_MIRROR_Y			; (X,Y)
+{
+	CMP #GRID_W
+	BCS clip
+	CPX #GRID_H
+	BCS clip
+	ASL A
+	STA two_x+1
+	LSR A
+	\\ carry is clear
+	ADC grid_y_lookup, X
+	TAX
+	LDA #PIXEL_FULL
+	STA grid_array, X
+
+	\\ Mirror in Y - probably quicker to do a store & lookup..
+	TXA
+	SEC
+	SBC #((GRID_H-1)*GRID_W)+1
+	EOR #&FF
+	CLC
+	.two_x
+	ADC #0
+	TAX
+	LDA #PIXEL_FULL
+	STA grid_array, X
+	.clip
+}
+ENDMACRO
+
+MACRO SET_PIXEL_AX_MIRROR_X			; (X,Y)
+{
+	CMP #GRID_W
+	BCS clip
+	CPX #GRID_H
+	BCS clip
+	ASL A
+	STA two_x+1
+	LSR A
+	\\ carry is clear
+	ADC grid_y_lookup, X
+	TAX
+	LDA #PIXEL_FULL
+	STA grid_array, X
+
+	\\ Mirror in X - probably quicker to do a store & lookup..
+	TXA
+	ADC #(GRID_W-1)
+	SEC
+	.two_x
+	SBC #0
+	TAX
+	LDA #PIXEL_FULL
+	STA grid_array, X
+	.clip
+}
+ENDMACRO
+
+MACRO SET_PIXEL_AX_MIRROR_FOUR			; (X,Y)
+{
+	CMP #GRID_W
+	BCS clip
+	CPX #GRID_H
+	BCS clip
+
+	\\ carry is clear
+	ADC grid_y_lookup, X
+	TAX
+	LDA #PIXEL_FULL
+	STA grid_array, X
+
+IF 0
+	\\ Mirror opp corner
+	TXA
+	SEC
+	SBC #GRID_SIZE
+	EOR #&FF
+	TAX
+	LDA #PIXEL_FULL
+	STA grid_array, X
+ENDIF
+
+	\\ Mirror in X
+	LDX fx_anim_y
+	SEC
+	LDA #GRID_W-1
+	SBC fx_anim_x
+	ADC grid_y_lookup, X
+	TAX
+	LDA #PIXEL_FULL
+	STA grid_array, X
+
+IF 0
+	\\ Mirror in Y
+	LDX fx_anim_y
+	LDA fx_anim_x
+	CLC
+	ADC grid_y_lookup_inv, X
+	TAX
+	LDA #PIXEL_FULL
+	STA grid_array, X
+ENDIF
+
+	.clip
+}
+ENDMACRO
+
 
 .fx_line_y
 {
@@ -926,7 +1058,7 @@ ENDMACRO
 	.loop
 
 	\\ Draw pixel
-	SET_PIXEL_AX				; need to clip
+	SET_PIXEL_AX_MIRROR_FOUR				; need to clip
 
 	CLC
 	LDA fx_anim_y
@@ -1063,8 +1195,13 @@ ANIM_END
 
 
 .grid_y_lookup
-FOR n,0,GRID_H,1
+FOR n,0,GRID_H-1,1
 EQUB n * GRID_W
+NEXT
+
+.grid_y_lookup_inv
+FOR n,0,GRID_H-1,1
+EQUB ((GRID_H-1) - n) * GRID_W
 NEXT
 
 .end
