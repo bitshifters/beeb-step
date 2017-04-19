@@ -188,9 +188,6 @@ ENDIF
 
 
 	jsr effect_init
-	LDX #LO(anim_data_snake_h)
-	LDY #HI(anim_data_snake_h)
-	JSR fx_anim_init
 
 .loop
 	lda #19:jsr osbyte
@@ -848,6 +845,7 @@ ENDMACRO
 
 	SET_COLOUR_EFFECT effect_colour_standard
 	SET_BLOCK_EFFECT effect_blocks_all_on
+	SET_ANIM_EFFECT anim_data_snake_v
 
 	rts
 }
@@ -871,6 +869,7 @@ ENDMACRO
 	SET_COLOUR_EFFECT effect_colour_standard
 	SET_BLOCK_EFFECT effect_blocks_scaled
 	SET_PIXEL_EFFECT grid_pixel_mirror_X
+	SET_ANIM_EFFECT anim_data_spiral
 	jmp carryon
 
 .fx1	cmp #20:bne fx2
@@ -878,6 +877,7 @@ ENDMACRO
 	SET_COLOUR_EFFECT effect_colour_inverted
 	SET_BLOCK_EFFECT effect_blocks_scaled
 	SET_PIXEL_EFFECT grid_pixel_mirror_Y
+	SET_ANIM_EFFECT anim_data_snake_h
 	jmp carryon
 
 .fx2	cmp #30:bne fx3
@@ -885,6 +885,7 @@ ENDMACRO
 	SET_COLOUR_EFFECT effect_colour_inverted
 	SET_BLOCK_EFFECT effect_blocks_all_on
 	SET_PIXEL_EFFECT grid_pixel_mirror_four
+	SET_ANIM_EFFECT anim_data_scan
 	jmp carryon
 
 .fx3
@@ -902,11 +903,10 @@ ENDMACRO
 	jsr grid_draw
 
 
-\\	JSR fx_frequency
-\\	JSR fx_scan
-\\	JSR fx_lines
-	JSR fx_anim_update
+\\ Need to set effect fn at runtime
 
+\\	JSR fx_frequency
+	JSR fx_anim_update
 
 	rts
 }

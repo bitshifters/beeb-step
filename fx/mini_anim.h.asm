@@ -12,3 +12,9 @@
 .fx_anim_frm_c		SKIP 1
 .fx_anim_num_loops	SKIP 1
 .fx_anim_loop_point	SKIP 1
+
+MACRO SET_ANIM_EFFECT fn
+{
+    LDX #LO(fn):LDY #HI(fn):JSR fx_anim_init
+}
+ENDMACRO
