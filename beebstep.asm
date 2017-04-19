@@ -36,19 +36,7 @@ INCLUDE "lib/bbc.h.asm"
 INCLUDE "lib/bbc_utils.h.asm"
 INCLUDE "lib/exomiser.h.asm"
 INCLUDE "lib/vgmplayer.h.asm"
-
-.fx_anim_ptr		SKIP 2
-.fx_anim_idx		SKIP 1
-.fx_anim_x			SKIP 1
-.fx_anim_y			SKIP 1
-.fx_anim_dx			SKIP 1
-.fx_anim_dy			SKIP 1
-.fx_anim_num_it 	SKIP 1
-.fx_anim_num_px		SKIP 1
-.fx_anim_frm_d		SKIP 1
-.fx_anim_frm_c		SKIP 1
-.fx_anim_num_loops	SKIP 1
-.fx_anim_loop_point	SKIP 1
+INCLUDE "fx/mini_anim.h.asm"
 
 
 ; Define playback frequency - timed off the 1Mhz timer 
@@ -457,6 +445,148 @@ MACRO SET_COLOUR_EFFECT effect_addr
 	bpl loop
 ENDMACRO
 
+MACRO SET_PIXEL_AX					; (X,Y)
+{
+	CMP #GRID_W
+	BCS clip
+	CPX #GRID_H
+	BCS clip
+	\\ carry is clear
+	ADC grid_y_lookup, X
+	TAX
+	LDA #PIXEL_FULL
+	STA grid_array, X
+	.clip
+}
+ENDMACRO
+
+MACRO SET_PIXEL_AX_MIRROR_OPP		; (X,Y)
+{
+	CMP #GRID_W
+	BCS clip
+	CPX #GRID_H
+	BCS clip
+	\\ carry is clear
+	ADC grid_y_lookup, X
+	TAX
+	LDA #PIXEL_FULL
+	STA grid_array, X
+
+	\\ Mirror
+	TXA
+	SEC
+	SBC #GRID_SIZE
+	EOR #&FF
+	TAX
+	LDA #PIXEL_FULL
+	STA grid_array, X
+	.clip
+}
+ENDMACRO
+
+MACRO SET_PIXEL_AX_MIRROR_Y			; (X,Y)
+{
+	CMP #GRID_W
+	BCS clip
+	CPX #GRID_H
+	BCS clip
+	ASL A
+	STA two_x+1
+	LSR A
+	\\ carry is clear
+	ADC grid_y_lookup, X
+	TAX
+	LDA #PIXEL_FULL
+	STA grid_array, X
+
+	\\ Mirror in Y - probably quicker to do a store & lookup..
+	TXA
+	SEC
+	SBC #((GRID_H-1)*GRID_W)+1
+	EOR #&FF
+	CLC
+	.two_x
+	ADC #0
+	TAX
+	LDA #PIXEL_FULL
+	STA grid_array, X
+	.clip
+}
+ENDMACRO
+
+MACRO SET_PIXEL_AX_MIRROR_X			; (X,Y)
+{
+	CMP #GRID_W
+	BCS clip
+	CPX #GRID_H
+	BCS clip
+	ASL A
+	STA two_x+1
+	LSR A
+	\\ carry is clear
+	ADC grid_y_lookup, X
+	TAX
+	LDA #PIXEL_FULL
+	STA grid_array, X
+
+	\\ Mirror in X - probably quicker to do a store & lookup..
+	TXA
+	ADC #(GRID_W-1)
+	SEC
+	.two_x
+	SBC #0
+	TAX
+	LDA #PIXEL_FULL
+	STA grid_array, X
+	.clip
+}
+ENDMACRO
+
+MACRO SET_PIXEL_AX_MIRROR_FOUR			; (X,Y)
+{
+	CMP #GRID_W
+	BCS clip
+	CPX #GRID_H
+	BCS clip
+
+	\\ carry is clear
+	ADC grid_y_lookup, X
+	TAX
+	LDA #PIXEL_FULL
+	STA grid_array, X
+
+	\\ Mirror opp corner
+	TXA
+	SEC
+	SBC #GRID_SIZE
+	EOR #&FF
+	TAX
+	LDA #PIXEL_FULL
+	STA grid_array, X
+
+	\\ Mirror in X
+	LDX fx_anim_y
+	SEC
+	LDA #GRID_W-1
+	SBC fx_anim_x
+	CLC
+	ADC grid_y_lookup, X
+	TAX
+	LDA #PIXEL_FULL
+	STA grid_array, X
+
+	\\ Mirror in Y
+	LDX fx_anim_y
+	LDA fx_anim_x
+	CLC
+	ADC grid_y_lookup_inv, X
+	TAX
+	LDA #PIXEL_FULL
+	STA grid_array, X
+
+	.clip
+}
+ENDMACRO
 
 
 
@@ -760,151 +890,6 @@ FX_FREQUENCY_START = 13
 	RTS
 }
 
-
-MACRO SET_PIXEL_AX			; (X,Y)
-{
-	CMP #GRID_W
-	BCS clip
-	CPX #GRID_H
-	BCS clip
-	\\ carry is clear
-	ADC grid_y_lookup, X
-	TAX
-	LDA #PIXEL_FULL
-	STA grid_array, X
-	.clip
-}
-ENDMACRO
-
-MACRO SET_PIXEL_AX_MIRROR_OPP			; (X,Y)
-{
-	CMP #GRID_W
-	BCS clip
-	CPX #GRID_H
-	BCS clip
-	\\ carry is clear
-	ADC grid_y_lookup, X
-	TAX
-	LDA #PIXEL_FULL
-	STA grid_array, X
-
-	\\ Mirror
-	TXA
-	SEC
-	SBC #GRID_SIZE
-	EOR #&FF
-	TAX
-	LDA #PIXEL_FULL
-	STA grid_array, X
-	.clip
-}
-ENDMACRO
-
-MACRO SET_PIXEL_AX_MIRROR_Y			; (X,Y)
-{
-	CMP #GRID_W
-	BCS clip
-	CPX #GRID_H
-	BCS clip
-	ASL A
-	STA two_x+1
-	LSR A
-	\\ carry is clear
-	ADC grid_y_lookup, X
-	TAX
-	LDA #PIXEL_FULL
-	STA grid_array, X
-
-	\\ Mirror in Y - probably quicker to do a store & lookup..
-	TXA
-	SEC
-	SBC #((GRID_H-1)*GRID_W)+1
-	EOR #&FF
-	CLC
-	.two_x
-	ADC #0
-	TAX
-	LDA #PIXEL_FULL
-	STA grid_array, X
-	.clip
-}
-ENDMACRO
-
-MACRO SET_PIXEL_AX_MIRROR_X			; (X,Y)
-{
-	CMP #GRID_W
-	BCS clip
-	CPX #GRID_H
-	BCS clip
-	ASL A
-	STA two_x+1
-	LSR A
-	\\ carry is clear
-	ADC grid_y_lookup, X
-	TAX
-	LDA #PIXEL_FULL
-	STA grid_array, X
-
-	\\ Mirror in X - probably quicker to do a store & lookup..
-	TXA
-	ADC #(GRID_W-1)
-	SEC
-	.two_x
-	SBC #0
-	TAX
-	LDA #PIXEL_FULL
-	STA grid_array, X
-	.clip
-}
-ENDMACRO
-
-MACRO SET_PIXEL_AX_MIRROR_FOUR			; (X,Y)
-{
-	CMP #GRID_W
-	BCS clip
-	CPX #GRID_H
-	BCS clip
-
-	\\ carry is clear
-	ADC grid_y_lookup, X
-	TAX
-	LDA #PIXEL_FULL
-	STA grid_array, X
-
-	\\ Mirror opp corner
-	TXA
-	SEC
-	SBC #GRID_SIZE
-	EOR #&FF
-	TAX
-	LDA #PIXEL_FULL
-	STA grid_array, X
-
-	\\ Mirror in X
-	LDX fx_anim_y
-	SEC
-	LDA #GRID_W-1
-	SBC fx_anim_x
-	CLC
-	ADC grid_y_lookup, X
-	TAX
-	LDA #PIXEL_FULL
-	STA grid_array, X
-
-	\\ Mirror in Y
-	LDX fx_anim_y
-	LDA fx_anim_x
-	CLC
-	ADC grid_y_lookup_inv, X
-	TAX
-	LDA #PIXEL_FULL
-	STA grid_array, X
-
-	.clip
-}
-ENDMACRO
-
-
 .fx_line_y
 {
 	LDX grid_y_lookup, Y
@@ -937,271 +922,6 @@ ENDMACRO
 	RTS	
 }
 
-
-.fx_anim_init
-{
-	STX fx_anim_ptr
-	STY fx_anim_ptr+1
-
-	LDY #0
-	STY fx_anim_num_loops
-
-	LDA (fx_anim_ptr), Y
-	STA fx_anim_x
-	INY
-
-	LDA (fx_anim_ptr), Y
-	STA fx_anim_y
-	INY
-	
-	STY fx_anim_idx
-	JSR fx_anim_init_step
-
-	RTS
-}
-
-.fx_anim_init_loop
-{
-	\\ Next byte is number of loops
-	INY
-
-	LDA (fx_anim_ptr), Y
-	BNE init_next_step
-
-	\\ Hit end of loop
-
-	\\ Done all loops?
-	SEC
-	LDA fx_anim_num_loops
-	SBC #1
-	BEQ init_next_step
-
-	\\ If not reset our index
-	LDY fx_anim_loop_point
-
-	.init_next_step
-	STA fx_anim_num_loops
-	STY fx_anim_loop_point
-
-	INY
-	STY fx_anim_idx
-}
-\\ DROP THROUGH TO INITIALISE FIRST STEP OF LOOP!
-
-.fx_anim_init_step
-{
-	LDY fx_anim_idx
-
-	LDA (fx_anim_ptr), Y
-	BEQ return					; end of sequence
-
-	CMP #&FF					; special iteration = loop
-	BEQ fx_anim_init_loop
-
-	STA fx_anim_num_it			; number of times to iterate
-	INY
-
-	LDA (fx_anim_ptr), Y
-	STA fx_anim_dx
-	INY
-
-	LDA (fx_anim_ptr), Y
-	STA fx_anim_dy
-	INY
-
-	LDA (fx_anim_ptr), Y
-	LSR A: LSR A: LSR A: LSR A
-	STA fx_anim_num_px
-
-	LDA (fx_anim_ptr), Y
-	AND #&F
-	STA fx_anim_frm_d
-	INY
-
-	STA fx_anim_frm_c
-
-	STY fx_anim_idx
-	.return
-	RTS
-}
-
-.fx_anim_get_next_step
-{
-	JSR fx_anim_init_step
-	BNE continue_seq
-
-	\\ Currently just resets on end of sequence
-
-	LDX fx_anim_ptr
-	LDY fx_anim_ptr+1
-	JMP fx_anim_init
-
-	.continue_seq
-	RTS
-}
-
-.fx_anim_update
-{
-	LDY fx_anim_frm_c
-	BNE wait_count
-
-	.do_anim
-
-	\\ Do the anim
-	LDY fx_anim_num_px			; this many pixels
-	LDA fx_anim_x
-	LDX fx_anim_y
-
-	.loop
-
-	\\ Draw pixel
-	SET_PIXEL_AX
-
-	CLC
-	LDA fx_anim_y
-	ADC fx_anim_dy
-	STA fx_anim_y
-	TAX
-
-	CLC
-	LDA fx_anim_x
-	ADC fx_anim_dx
-	STA fx_anim_x
-
-	DEY
-	BNE loop
-
-	\\ Done an iteration
-	DEC fx_anim_num_it
-
-	\\ How many iterations left?
-	BNE next_it
-
-	\\ Done all iterations
-
-	JMP fx_anim_get_next_step
-
-	.next_it
-
-	\\ Countdown timer
-
-	LDY fx_anim_frm_d
-	.wait_count
-	DEY
-	STY fx_anim_frm_c
-
-	.return
-	RTS
-}
-
-\\ anim data something like:
-\\ start x,y
-\\ what to do at end?  finish, loop, reverse?
-\\ num iterations of step - 0=end of stream, could use flags for end if reach X/Y bounds?
-\\ pixel delta x, delta y -- can be negative
-\\ pixels per frame - or make this globally configured (need bounds checking?)
-\\ frame delay - pack 4:4 with pixels per frame (or could be globally configured?)
-
-\\ other ideas:
-\\ could have loops in the sequence to do a series of steps
-\\ could make a step terminate when reaching boundary of the grid rather than counting
-\\ could start sequences from current x,y
-
-\\ still need to figure out start / end vs iterations & delays
-\\ shouldn't draw on init - only draw in update
-\\ delay first then draw current pixel then update position
-
-MACRO ANIM_START x, y
-	EQUB x, y
-ENDMACRO
-
-MACRO ANIM_STEP iterations, delta_x, delta_y, pixels, delay
-	EQUB iterations, delta_x, delta_y, (pixels * 16 + delay)
-ENDMACRO
-
-MACRO ANIM_STEP_1 iterations, delta_x, delta_y
-	EQUB iterations, delta_x, delta_y, 17			; 1 + 1
-ENDMACRO
-
-MACRO ANIM_LOOP loops
-	EQUB &FF, loops
-ENDMACRO
-
-MACRO ANIM_LOOP_END
-	EQUB &FF, 0
-ENDMACRO
-
-MACRO ANIM_END
-	EQUB 0
-ENDMACRO
-
-.anim_data_snake_v
-ANIM_START 0, 0
-ANIM_LOOP 6
-ANIM_STEP 6, 0, 1, 1, 1
-ANIM_STEP 1, 1, 0, 1, 1
-ANIM_STEP 6, 0, -1, 1, 1
-ANIM_STEP 1, 1, 0, 1, 1
-ANIM_LOOP_END
-ANIM_STEP 7, 0, 1, 1, 1
-ANIM_END
-
-.anim_data_snake_h
-ANIM_START 0, 0
-ANIM_LOOP 3
-ANIM_STEP 12, 1, 0, 1, 1
-ANIM_STEP 1, 0, 1, 1, 1
-ANIM_STEP 12, -1, 0, 1, 1
-ANIM_STEP 1, 0, 1, 1, 1
-ANIM_LOOP_END
-ANIM_STEP 13, 1, 0, 1, 1
-ANIM_END
-
-.anim_data_spiral
-ANIM_START 0, 0
-ANIM_STEP_1 12, 1, 0
-ANIM_STEP_1 6, 0, 1
-ANIM_STEP_1 12, -1, 0
-ANIM_STEP_1 5, 0, -1
-ANIM_STEP_1 11, 1, 0
-ANIM_STEP_1 4, 0, 1
-ANIM_STEP_1 10, -1, 0
-ANIM_STEP_1 3, 0, -1
-ANIM_STEP_1 9, 1, 0
-ANIM_STEP_1 2, 0, 1
-ANIM_STEP_1 8, -1, 0
-ANIM_STEP_1 1, 0, -1
-ANIM_STEP_1 8, 1, 0
-ANIM_END
-
-.anim_data_scan
-ANIM_START 0, 0
-ANIM_LOOP 6
-ANIM_STEP_1 12, 1, 0
-ANIM_STEP_1 1, -12, 1
-ANIM_LOOP_END
-ANIM_STEP_1 13, 1, 0
-ANIM_END
-
-.anim_data_lines_x
-ANIM_START 0, 0
-ANIM_LOOP 6
-ANIM_STEP 1, 1, 0, 13, 1
-ANIM_STEP_1 1, -13, 1
-ANIM_LOOP_END
-ANIM_STEP 1, 1, 0, 13, 1
-ANIM_END
-
-.anim_data_lines_y
-ANIM_START 0, 0
-ANIM_LOOP 12
-ANIM_STEP 1, 0, 1, 7, 1
-ANIM_STEP 1, 1, -7, 1, 1
-ANIM_LOOP_END
-ANIM_STEP 1, 0, 1, 7, 1
-ANIM_END
-
-
 .grid_y_lookup
 FOR n,0,GRID_H-1,1
 EQUB n * GRID_W
@@ -1211,6 +931,11 @@ NEXT
 FOR n,0,GRID_H-1,1
 EQUB ((GRID_H-1) - n) * GRID_W
 NEXT
+
+
+; Include further FX
+
+INCLUDE "fx/mini_anim.asm"
 
 .end
 
