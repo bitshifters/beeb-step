@@ -548,7 +548,6 @@ MACRO SET_PIXEL_AX_MIRROR_X			; (X,Y)
 }
 ENDMACRO
 
-
 MACRO SET_PIXEL_AX_MIRROR_FOUR			; (X,Y)
 {
 	CMP #GRID_W
@@ -601,6 +600,13 @@ MACRO SET_PIXEL_AX_MIRROR_FOUR			; (X,Y)
 }
 ENDMACRO
 
+
+MACRO SET_EFFECT_FUNC fn
+{
+	LDA #LO(fn):STA effect_update_fn+1
+	LDA #HI(fn):STA effect_update_fn+2
+}
+ENDMACRO
 
 
 
@@ -846,6 +852,7 @@ ENDMACRO
 	SET_COLOUR_EFFECT effect_colour_standard
 	SET_BLOCK_EFFECT effect_blocks_all_on
 	SET_ANIM_EFFECT anim_data_snake_v
+	SET_EFFECT_FUNC fx_anim_update
 
 	rts
 }
@@ -888,8 +895,13 @@ ENDMACRO
 	SET_ANIM_EFFECT anim_data_scan
 	jmp carryon
 
-.fx3
+.fx3	cmp #40:bne fx4
 
+	SET_COLOUR_EFFECT effect_colour_standard
+	SET_EFFECT_FUNC fx_frequency
+	jmp carryon
+
+.fx4
 
 .carryon
 
@@ -901,15 +913,14 @@ ENDMACRO
 	lda #10
 	jsr grid_fade
 	jsr grid_draw
-
-
-\\ Need to set effect fn at runtime
-
-\\	JSR fx_frequency
-	JSR fx_anim_update
-
+}
+\\ DROP THROUGH!
+.effect_update_fn
+{
+	JSR fx_frequency
 	rts
 }
+
 
 
 FX_FREQUENCY_START = 13
