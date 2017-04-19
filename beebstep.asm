@@ -447,6 +447,7 @@ ENDMACRO
 
 MACRO SET_PIXEL_AX					; (X,Y)
 {
+	\\ clip
 	CMP #GRID_W
 	BCS clip
 	CPX #GRID_H
@@ -462,21 +463,24 @@ ENDMACRO
 
 MACRO SET_PIXEL_AX_MIRROR_OPP		; (X,Y)
 {
+	\\ clip
 	CMP #GRID_W
 	BCS clip
 	CPX #GRID_H
 	BCS clip
+
 	\\ carry is clear
 	ADC grid_y_lookup, X
 	TAX
 	LDA #PIXEL_FULL
 	STA grid_array, X
 
-	\\ Mirror
+	\\ mirror opposite corner
 	TXA
 	SEC
 	SBC #GRID_SIZE
 	EOR #&FF
+
 	TAX
 	LDA #PIXEL_FULL
 	STA grid_array, X
@@ -486,27 +490,30 @@ ENDMACRO
 
 MACRO SET_PIXEL_AX_MIRROR_Y			; (X,Y)
 {
+	\\ clip
 	CMP #GRID_W
 	BCS clip
 	CPX #GRID_H
 	BCS clip
-	ASL A
-	STA two_x+1
-	LSR A
+
+	\\ remember x,y
+	STA load_x+1
+	STX load_y+1
+
 	\\ carry is clear
 	ADC grid_y_lookup, X
 	TAX
 	LDA #PIXEL_FULL
 	STA grid_array, X
 
-	\\ Mirror in Y - probably quicker to do a store & lookup..
-	TXA
-	SEC
-	SBC #((GRID_H-1)*GRID_W)+1
-	EOR #&FF
+	\\ Mirror in Y
+	.load_y
+	LDX #0
+	.load_x		
+	LDA #0
+
 	CLC
-	.two_x
-	ADC #0
+	ADC grid_y_lookup_inv, X
 	TAX
 	LDA #PIXEL_FULL
 	STA grid_array, X
@@ -516,10 +523,12 @@ ENDMACRO
 
 MACRO SET_PIXEL_AX_MIRROR_X			; (X,Y)
 {
+	\\ clip
 	CMP #GRID_W
 	BCS clip
 	CPX #GRID_H
 	BCS clip
+	\\ calc 2x
 	ASL A
 	STA two_x+1
 	LSR A
@@ -529,7 +538,7 @@ MACRO SET_PIXEL_AX_MIRROR_X			; (X,Y)
 	LDA #PIXEL_FULL
 	STA grid_array, X
 
-	\\ Mirror in X - probably quicker to do a store & lookup..
+	\\ Mirror in X - not quicker to do a store & lookup!
 	TXA
 	ADC #(GRID_W-1)
 	SEC
@@ -542,6 +551,7 @@ MACRO SET_PIXEL_AX_MIRROR_X			; (X,Y)
 }
 ENDMACRO
 
+
 MACRO SET_PIXEL_AX_MIRROR_FOUR			; (X,Y)
 {
 	CMP #GRID_W
@@ -549,13 +559,29 @@ MACRO SET_PIXEL_AX_MIRROR_FOUR			; (X,Y)
 	CPX #GRID_H
 	BCS clip
 
+	\\ calc 2x
+	ASL A
+	STA two_x+1
+	STA two_x2+1
+	LSR A
+
 	\\ carry is clear
 	ADC grid_y_lookup, X
 	TAX
 	LDA #PIXEL_FULL
 	STA grid_array, X
 
-	\\ Mirror opp corner
+	\\ Mirror in X
+	TXA
+	ADC #(GRID_W-1)
+	SEC
+	.two_x
+	SBC #0
+	TAX
+	LDA #PIXEL_FULL
+	STA grid_array, X
+
+	\\ Mirror opp corner - actually mirrors in Y
 	TXA
 	SEC
 	SBC #GRID_SIZE
@@ -564,22 +590,12 @@ MACRO SET_PIXEL_AX_MIRROR_FOUR			; (X,Y)
 	LDA #PIXEL_FULL
 	STA grid_array, X
 
-	\\ Mirror in X
-	LDX fx_anim_y
+	\\ Mirror in X again - actually mirrors to opp corner
+	TXA
+	ADC #(GRID_W-1)
 	SEC
-	LDA #GRID_W-1
-	SBC fx_anim_x
-	CLC
-	ADC grid_y_lookup, X
-	TAX
-	LDA #PIXEL_FULL
-	STA grid_array, X
-
-	\\ Mirror in Y
-	LDX fx_anim_y
-	LDA fx_anim_x
-	CLC
-	ADC grid_y_lookup_inv, X
+	.two_x2
+	SBC #0
 	TAX
 	LDA #PIXEL_FULL
 	STA grid_array, X
@@ -781,10 +797,46 @@ ELSE
 	rts
 }
 
-
-
 ENDIF
 
+
+; fn to set pixel so we can overload at runtime
+
+.grid_set_pixel				; (A,X) = (x,y)
+{
+	JMP grid_pixel_AX
+}
+
+MACRO SET_PIXEL_EFFECT fn
+{
+	LDA #LO(fn):STA grid_set_pixel+1
+	LDA #HI(fn):STA grid_set_pixel+2
+}
+ENDMACRO
+
+.grid_pixel_AX
+{
+	SET_PIXEL_AX
+	RTS
+}
+
+.grid_pixel_mirror_X
+{
+	SET_PIXEL_AX_MIRROR_X
+	RTS
+}
+
+.grid_pixel_mirror_Y
+{
+	SET_PIXEL_AX_MIRROR_Y
+	RTS
+}
+
+.grid_pixel_mirror_four
+{
+	SET_PIXEL_AX_MIRROR_FOUR
+	RTS
+}
 
 
 .effect_init
@@ -818,18 +870,21 @@ ENDIF
 
 	SET_COLOUR_EFFECT effect_colour_standard
 	SET_BLOCK_EFFECT effect_blocks_scaled
+	SET_PIXEL_EFFECT grid_pixel_mirror_X
 	jmp carryon
 
 .fx1	cmp #20:bne fx2
 
 	SET_COLOUR_EFFECT effect_colour_inverted
 	SET_BLOCK_EFFECT effect_blocks_scaled
+	SET_PIXEL_EFFECT grid_pixel_mirror_Y
 	jmp carryon
 
 .fx2	cmp #30:bne fx3
 
 	SET_COLOUR_EFFECT effect_colour_inverted
 	SET_BLOCK_EFFECT effect_blocks_all_on
+	SET_PIXEL_EFFECT grid_pixel_mirror_four
 	jmp carryon
 
 .fx3
