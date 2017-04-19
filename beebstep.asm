@@ -200,8 +200,8 @@ ENDIF
 
 
 	jsr effect_init
-	LDX #LO(anim_data_scan)
-	LDY #HI(anim_data_scan)
+	LDX #LO(anim_data_snake_h)
+	LDY #HI(anim_data_snake_h)
 	JSR fx_anim_init
 
 .loop
@@ -871,7 +871,6 @@ MACRO SET_PIXEL_AX_MIRROR_FOUR			; (X,Y)
 	LDA #PIXEL_FULL
 	STA grid_array, X
 
-IF 0
 	\\ Mirror opp corner
 	TXA
 	SEC
@@ -880,19 +879,18 @@ IF 0
 	TAX
 	LDA #PIXEL_FULL
 	STA grid_array, X
-ENDIF
 
 	\\ Mirror in X
 	LDX fx_anim_y
 	SEC
 	LDA #GRID_W-1
 	SBC fx_anim_x
+	CLC
 	ADC grid_y_lookup, X
 	TAX
 	LDA #PIXEL_FULL
 	STA grid_array, X
 
-IF 0
 	\\ Mirror in Y
 	LDX fx_anim_y
 	LDA fx_anim_x
@@ -901,7 +899,6 @@ IF 0
 	TAX
 	LDA #PIXEL_FULL
 	STA grid_array, X
-ENDIF
 
 	.clip
 }
@@ -1058,7 +1055,7 @@ ENDMACRO
 	.loop
 
 	\\ Draw pixel
-	SET_PIXEL_AX_MIRROR_FOUR				; need to clip
+	SET_PIXEL_AX
 
 	CLC
 	LDA fx_anim_y
@@ -1147,6 +1144,17 @@ ANIM_STEP 6, 0, -1, 1, 1
 ANIM_STEP 1, 1, 0, 1, 1
 ANIM_LOOP_END
 ANIM_STEP 7, 0, 1, 1, 1
+ANIM_END
+
+.anim_data_snake_h
+ANIM_START 0, 0
+ANIM_LOOP 3
+ANIM_STEP 12, 1, 0, 1, 1
+ANIM_STEP 1, 0, 1, 1, 1
+ANIM_STEP 12, -1, 0, 1, 1
+ANIM_STEP 1, 0, 1, 1, 1
+ANIM_LOOP_END
+ANIM_STEP 13, 1, 0, 1, 1
 ANIM_END
 
 .anim_data_spiral
