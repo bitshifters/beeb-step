@@ -1,4 +1,4 @@
-; mini animation fx for grid
+; pixel animation fx for grid
 
 .fx_anim_start
 

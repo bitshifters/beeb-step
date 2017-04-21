@@ -1,4 +1,4 @@
-; mini animation fx
+; pixel animation fx
 
 .fx_anim_ptr		SKIP 2
 .fx_anim_idx		SKIP 1

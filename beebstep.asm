@@ -39,7 +39,7 @@ INCLUDE "lib/exomiser.h.asm"
 INCLUDE "lib/vgmplayer.h.asm"
 INCLUDE "fx/grid.h.asm"
 INCLUDE "fx/pixel.h.asm"
-INCLUDE "fx/mini_anim.h.asm"
+INCLUDE "fx/pixel_anim.h.asm"
 
 
 ; Define playback frequency - timed off the 1Mhz timer 
@@ -450,7 +450,7 @@ ENDMACRO
 INCLUDE "fx/grid.asm"
 INCLUDE "fx/frequency.asm"
 INCLUDE "fx/pixel.asm"
-INCLUDE "fx/mini_anim.asm"
+INCLUDE "fx/pixel_anim.asm"
 
 .end
 
