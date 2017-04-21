@@ -31,6 +31,7 @@ USR_IFR = &fe6d
 USR_IER = &fe6e
 
 ORG 0
+GUARD &8F
 
 INCLUDE "lib/bbc.h.asm"
 INCLUDE "lib/bbc_utils.h.asm"
@@ -922,72 +923,6 @@ ENDMACRO
 }
 
 
-
-FX_FREQUENCY_START = 13
-
-.fx_frequency
-{
-	; triggers from frequencies played
-	ldx #FX_FREQUENCY_START						; can start upto 27 entries into vgm_freq_array
-	ldy #0
-.floop
-	lda vgm_freq_array,x
-	beq nextf
-
-	lda #PIXEL_FULL
-	sta grid_array,y
-;	sta grid_array+1,y
-	
-
-	lda #0
-	sta vgm_freq_array,x
-.nextf
-	iny
-;	iny
-
-	cpy #GRID_SIZE
-	bcs done_floop				; otherwise we overflow grid_array
-
-	inx
-	cpx #VGM_FX_num_freqs		; otherwise we overflow vgm_freq_array
-	bcc floop
-.done_floop
-
-	RTS
-}
-
-.fx_line_y
-{
-	LDX grid_y_lookup, Y
-	LDY #GRID_W
-	LDA #PIXEL_FULL
-	.loop
-	STA grid_array, X
-	INX
-	DEY
-	BNE loop
-
-	.return
-	RTS	
-}
-
-.fx_line_x
-{
-	LDY #GRID_H
-	CLC
-	.loop
-	LDA #PIXEL_FULL
-	STA grid_array, X
-	TXA
-	ADC #GRID_W
-	TAX
-	DEY
-	BNE loop
-
-	.return
-	RTS	
-}
-
 .grid_y_lookup
 FOR n,0,GRID_H-1,1
 EQUB n * GRID_W
@@ -1001,6 +936,7 @@ NEXT
 
 ; Include further FX
 
+INCLUDE "fx/frequency.asm"
 INCLUDE "fx/mini_anim.asm"
 
 .end
