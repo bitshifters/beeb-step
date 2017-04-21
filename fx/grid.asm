@@ -218,48 +218,4 @@ ELSE
 ENDIF
 
 
-; fn to set pixel so we can overload at runtime
-
-.grid_set_pixel				; (A,X) = (x,y)
-{
-	JMP grid_pixel_AX
-}
-
-.grid_pixel_AX
-{
-	SET_PIXEL_AX
-	RTS
-}
-
-.grid_pixel_mirror_X
-{
-	SET_PIXEL_AX_MIRROR_X
-	RTS
-}
-
-.grid_pixel_mirror_Y
-{
-	SET_PIXEL_AX_MIRROR_Y
-	RTS
-}
-
-.grid_pixel_mirror_four
-{
-	SET_PIXEL_AX_MIRROR_FOUR
-	RTS
-}
-
-
-; Lookup tables
-
-.grid_y_lookup
-FOR n,0,GRID_H-1,1
-EQUB n * GRID_W
-NEXT
-
-.grid_y_lookup_inv
-FOR n,0,GRID_H-1,1
-EQUB ((GRID_H-1) - n) * GRID_W
-NEXT
-
 .fx_grid_end

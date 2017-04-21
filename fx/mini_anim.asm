@@ -119,7 +119,7 @@
 	.loop
 
 	\\ Draw pixel
-	JSR grid_set_pixel
+	JSR fx_pixel_plot
 
 	CLC
 	LDA fx_anim_y

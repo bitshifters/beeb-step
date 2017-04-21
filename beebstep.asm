@@ -38,6 +38,7 @@ INCLUDE "lib/bbc_utils.h.asm"
 INCLUDE "lib/exomiser.h.asm"
 INCLUDE "lib/vgmplayer.h.asm"
 INCLUDE "fx/grid.h.asm"
+INCLUDE "fx/pixel.h.asm"
 INCLUDE "fx/mini_anim.h.asm"
 
 
@@ -396,7 +397,7 @@ ENDMACRO
 
 	SET_COLOUR_EFFECT effect_colour_standard
 	SET_BLOCK_EFFECT effect_blocks_scaled
-	SET_PIXEL_EFFECT grid_pixel_mirror_X
+	SET_PIXEL_EFFECT fx_pixel_mirror_X
 	SET_ANIM_EFFECT anim_data_spiral
 	jmp carryon
 
@@ -404,7 +405,7 @@ ENDMACRO
 
 	SET_COLOUR_EFFECT effect_colour_inverted
 	SET_BLOCK_EFFECT effect_blocks_scaled
-	SET_PIXEL_EFFECT grid_pixel_mirror_Y
+	SET_PIXEL_EFFECT fx_pixel_mirror_Y
 	SET_ANIM_EFFECT anim_data_snake_h
 	jmp carryon
 
@@ -412,7 +413,7 @@ ENDMACRO
 
 	SET_COLOUR_EFFECT effect_colour_inverted
 	SET_BLOCK_EFFECT effect_blocks_all_on
-	SET_PIXEL_EFFECT grid_pixel_mirror_four
+	SET_PIXEL_EFFECT fx_pixel_mirror_four
 	SET_ANIM_EFFECT anim_data_scan
 	jmp carryon
 
@@ -448,6 +449,7 @@ ENDMACRO
 
 INCLUDE "fx/grid.asm"
 INCLUDE "fx/frequency.asm"
+INCLUDE "fx/pixel.asm"
 INCLUDE "fx/mini_anim.asm"
 
 .end
