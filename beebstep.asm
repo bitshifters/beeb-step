@@ -40,6 +40,7 @@ INCLUDE "lib/vgmplayer.h.asm"
 INCLUDE "fx/grid.h.asm"
 INCLUDE "fx/pixel.h.asm"
 INCLUDE "fx/pixel_anim.h.asm"
+INCLUDE "lib/bresenham.h.asm"
 
 
 ; Define playback frequency - timed off the 1Mhz timer 
@@ -62,6 +63,7 @@ INCLUDE "lib/vgmplayer.asm"
 INCLUDE "lib/disksys.asm"
 INCLUDE "lib/swr.asm"
 INCLUDE "lib/print.asm"
+INCLUDE "lib/bresenham.asm"
 
 ; disk loader uses hacky filename format (same as catalogue) 
 ; we use disk loader for SWR banks only
@@ -374,7 +376,7 @@ ENDMACRO
 	SET_COLOUR_EFFECT effect_colour_standard
 	SET_BLOCK_EFFECT effect_blocks_all_on
 	SET_ANIM_EFFECT anim_data_snake_v
-	SET_EFFECT_FUNC fx_anim_update
+	SET_EFFECT_FUNC fx_spin_update
 
 	rts
 }
@@ -451,6 +453,7 @@ INCLUDE "fx/grid.asm"
 INCLUDE "fx/frequency.asm"
 INCLUDE "fx/pixel.asm"
 INCLUDE "fx/pixel_anim.asm"
+INCLUDE "fx/spin.asm"
 
 .end
 
