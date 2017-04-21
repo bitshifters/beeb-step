@@ -401,6 +401,7 @@ ENDMACRO
 	SET_BLOCK_EFFECT effect_blocks_scaled
 	SET_PIXEL_EFFECT fx_pixel_mirror_X
 	SET_ANIM_EFFECT anim_data_spiral
+	SET_EFFECT_FUNC fx_anim_update
 	jmp carryon
 
 .fx1	cmp #20:bne fx2
@@ -416,7 +417,7 @@ ENDMACRO
 	SET_COLOUR_EFFECT effect_colour_inverted
 	SET_BLOCK_EFFECT effect_blocks_all_on
 	SET_PIXEL_EFFECT fx_pixel_mirror_four
-	SET_ANIM_EFFECT anim_data_scan
+	SET_EFFECT_FUNC fx_spin_update
 	jmp carryon
 
 .fx3	cmp #40:bne fx4
