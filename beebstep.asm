@@ -41,6 +41,7 @@ INCLUDE "fx/grid.h.asm"
 INCLUDE "fx/pixel.h.asm"
 INCLUDE "fx/pixel_anim.h.asm"
 INCLUDE "lib/bresenham.h.asm"
+INCLUDE "fx/letter.h.asm"
 
 
 ; Define playback frequency - timed off the 1Mhz timer 
@@ -376,10 +377,11 @@ ENDMACRO
 	SET_COLOUR_EFFECT effect_colour_standard
 	SET_BLOCK_EFFECT effect_blocks_all_on
 	SET_ANIM_EFFECT anim_data_snake_v
-	SET_EFFECT_FUNC fx_spin_update
+	SET_EFFECT_FUNC fx_letter_update
 
 	rts
 }
+
 
 .effect_update
 {
@@ -455,6 +457,7 @@ INCLUDE "fx/frequency.asm"
 INCLUDE "fx/pixel.asm"
 INCLUDE "fx/pixel_anim.asm"
 INCLUDE "fx/spin.asm"
+INCLUDE "fx/letter.asm"
 
 .end
 

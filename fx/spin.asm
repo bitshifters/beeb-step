@@ -2,7 +2,7 @@
 
 .fx_spin_start
 
-.fx_spin_angle EQUB 0
+.fx_spin_angle 		EQUB 0
 
 .fx_spin_init
 {
@@ -65,6 +65,7 @@ ELSE
 
 ENDIF
 
+	.return
 	RTS
 }
 
