@@ -1,6 +1,7 @@
 
 
 PLAY_MUSIC = TRUE
+BEAT_FUNCS = TRUE
 
 SYS_ORB = &fe40
 SYS_ORA = &fe41
@@ -366,6 +367,15 @@ MACRO SET_EFFECT_FUNC fn
 }
 ENDMACRO
 
+MACRO SET_BEAT_FUNC channel, fn
+{
+	IF BEAT_FUNCS
+	LDA #LO(fn): STA beat_fn_table_LO+channel
+	LDA #HI(fn): STA beat_fn_table_HI+channel
+	ENDIF
+}
+ENDMACRO
+
 
 .effect_init
 {
@@ -377,7 +387,8 @@ ENDMACRO
 	SET_COLOUR_EFFECT effect_colour_standard
 	SET_BLOCK_EFFECT effect_blocks_all_on
 	SET_ANIM_EFFECT anim_data_snake_v
-	SET_EFFECT_FUNC fx_letter_update
+	SET_EFFECT_FUNC null_fn
+	SET_BEAT_FUNC 3, fx_letter_update
 
 	rts
 }
@@ -440,15 +451,76 @@ ENDMACRO
 	lda #10
 	jsr grid_fade
 	jsr grid_draw
+
+	IF BEAT_FUNCS
+	\\ Do beat fns
+	{
+		LDX #0
+		.beat_loop
+		LDA vgm_chan_array, X
+		BEQ next_beat
+
+		LDA beat_fn_table_HI, X
+		BEQ skip_beat
+
+		STA jump_beat+2
+
+		LDA beat_fn_table_LO, X
+		STA jump_beat+1
+
+		STX store_x+1
+
+		.jump_beat
+		JSR &FFFF
+
+		.store_x
+		LDX #0
+
+		.skip_beat
+		LDA #0
+		STA vgm_chan_array, X
+
+		.next_beat
+		INX
+		CPX #4
+		BCC beat_loop
+	}
+	ENDIF
+
+	\\ Do always fn
 }
 \\ DROP THROUGH!
 .effect_update_fn
 {
-	JSR fx_frequency
-	rts
+	JMP fx_frequency
+}
+
+; if we need an empty function to call..
+.null_fn
+{
+	RTS
 }
 
 
+; Functions to call on beat triggers from VGM
+
+IF BEAT_FUNCS
+.beat_fn_table_LO
+{
+	EQUB 0
+	EQUB 0
+	EQUB 0
+	EQUB 0
+}
+
+.beat_fn_table_HI
+{
+	EQUB 0
+	EQUB 0
+	EQUB 0
+	EQUB 0
+}
+ENDIF
 
 ; Include further FX
 
