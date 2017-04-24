@@ -431,15 +431,23 @@ ENDMACRO
 	SET_BLOCK_EFFECT effect_blocks_all_on
 	SET_PIXEL_EFFECT fx_pixel_mirror_four
 	SET_EFFECT_FUNC fx_spin_update
+	SET_BEAT_FUNC 3, 0
 	jmp carryon
 
 .fx3	cmp #40:bne fx4
 
 	SET_COLOUR_EFFECT effect_colour_standard
 	SET_EFFECT_FUNC fx_frequency
+	SET_BEAT_FUNC 3, fx_letter_update
 	jmp carryon
 
-.fx4
+.fx4	cmp #50:bne fx5
+
+	SET_BLOCK_EFFECT effect_blocks_scaled
+	SET_BEAT_FUNC 3, 0
+	jmp carryon
+
+.fx5
 
 .carryon
 
