@@ -5,6 +5,8 @@
 
 VGM_PLAYER_ORG = *
 
+_VGM_TRIGGER_BEAT_ON_VOLUME = TRUE
+
 ORG &0380
 GUARD &03E0
 
@@ -345,8 +347,8 @@ PSG_STROBE_CLI_INSN = psg_strobe + 25
 
 	\\ Set bit field for each register used this frame
 	LDA num_to_bit,Y				; look up bit for reg number
-	ORA vgm_player_reg_bits				; mask in bit
-	STA vgm_player_reg_bits
+	ORA vgm_player_reg_bits			; mask in bit
+	STA vgm_player_reg_bits			; ** COULD BE REMOVED FOR BEEB-STEP
 
 	\\ Is this tone or volume register?
 	TYA
@@ -363,7 +365,13 @@ PSG_STROBE_CLI_INSN = psg_strobe + 25
 	LDA #SN_VOL_MAX
 	SBC vgm_player_reg_vals,Y
 	STA vgm_player_reg_vals,Y
+
+	IF _VGM_TRIGGER_BEAT_ON_VOLUME
+	;BEQ return					; for non zero volume only
+	JMP trigger_beat
+	ELSE
 	JMP return
+	ENDIF
 
 	\\ Frequency / tone data
 	.process_tone_data
