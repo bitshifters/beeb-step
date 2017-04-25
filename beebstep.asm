@@ -2,6 +2,7 @@
 
 PLAY_MUSIC = TRUE
 BEAT_FUNCS = TRUE
+DO_SCROLLY = TRUE			; if ya think it's tacky ;)
 
 SYS_ORB = &fe40
 SYS_ORA = &fe41
@@ -43,6 +44,9 @@ INCLUDE "fx/pixel.h.asm"
 INCLUDE "fx/pixel_anim.h.asm"
 INCLUDE "lib/bresenham.h.asm"
 INCLUDE "fx/letter.h.asm"
+IF DO_SCROLLY
+INCLUDE "fx/scrolly.h.asm"
+ENDIF
 
 .beat_counter SKIP 1
 .beat_interval SKIP 1
@@ -441,6 +445,10 @@ ENDMACRO
 	SET_EFFECT_FUNC null_fn
 	SET_BEAT_FUNC 3, fx_letter_update
 
+	IF DO_SCROLLY
+	JSR fx_scrolly_init
+	ENDIF
+
 	rts
 }
 
@@ -513,10 +521,18 @@ ENDMACRO
 	jsr grid_fade
 	jsr grid_draw
 
-IF 0
+	IF DO_SCROLLY
+	JSR fx_scrolly_update
+	ENDIF
+
+IF 1
 ; debug code
 	lda beat_counter
-	and #15
+	lsr a:lsr a
+	clc:adc#65
+	sta &7c00+40+38
+	lda beat_counter
+	and #3
 	clc:adc#65
 	sta &7c00+40+39
 ENDIF
@@ -599,6 +615,9 @@ INCLUDE "fx/pixel.asm"
 INCLUDE "fx/pixel_anim.asm"
 INCLUDE "fx/spin.asm"
 INCLUDE "fx/letter.asm"
+IF DO_SCROLLY
+INCLUDE "fx/scrolly.asm"
+ENDIF
 
 .end
 
