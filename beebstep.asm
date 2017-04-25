@@ -1,7 +1,7 @@
 
 
 PLAY_MUSIC = TRUE
-BEAT_FUNCS = TRUE
+BEAT_FUNCS = FALSE
 
 SYS_ORB = &fe40
 SYS_ORA = &fe41
@@ -387,7 +387,7 @@ ENDMACRO
 	SET_COLOUR_EFFECT effect_colour_standard
 	SET_BLOCK_EFFECT effect_blocks_all_on
 	SET_ANIM_EFFECT anim_data_snake_v
-	SET_EFFECT_FUNC null_fn
+;	SET_EFFECT_FUNC null_fn
 	SET_BEAT_FUNC 3, fx_letter_update
 
 	rts
@@ -454,7 +454,7 @@ ENDMACRO
 
 
 
-
+	JSR fx_logowibble_update
 
 	lda #10
 	jsr grid_fade
@@ -538,6 +538,7 @@ INCLUDE "fx/pixel.asm"
 INCLUDE "fx/pixel_anim.asm"
 INCLUDE "fx/spin.asm"
 INCLUDE "fx/letter.asm"
+INCLUDE "fx/logowibble.asm"
 
 .end
 
