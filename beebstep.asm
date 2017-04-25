@@ -44,13 +44,20 @@ INCLUDE "fx/pixel_anim.h.asm"
 INCLUDE "lib/bresenham.h.asm"
 INCLUDE "fx/letter.h.asm"
 
+.beat_counter SKIP 1
+.beat_interval SKIP 1
 
-; Define playback frequency - timed off the 1Mhz timer 
-T1_HZ = 1000000
-SAMP_HZ = 392 ; 294 ; 350 ;6250
-RHZ = T1_HZ / SAMP_HZ
+; Define playback frequency - timed off the VIA 1Mhz timer1
+VIA_HZ = 1000000
+SAMP_HZ = 392 ;VGM playback frequency
+RHZ = VIA_HZ / SAMP_HZ
+PRINT "TIMER1_RATE ", RHZ
 
-
+; Define BPM beat counter frequency - timed off the VIA 1Mhz timer2
+MUSIC_BPM = 110
+TIMER2_SCALE = 13 ; scale timer2 to fit into 16-bits, 13 gives us slightly more precision
+TIMER2_RATE = VIA_HZ * 60 / MUSIC_BPM / TIMER2_SCALE 
+PRINT "TIMER2_RATE ", TIMER2_RATE
 
 ORG &1100
 GUARD &3000
@@ -263,6 +270,7 @@ ENDIF
 	lda USR_ACR
 	and #&3f
 	ora #&40
+	and #&df	; clear bit 5 - sets timer 2 to timed interrupt 
 	sta USR_ACR
 	
 	; Point at IRQ handler
@@ -271,16 +279,27 @@ ENDIF
 	sta &204
 	stx &205
 	
-	; Enable Usr timer1 interrupt
-	lda #&c0
+	; Enable Usr timer1 + timer2 interrupt
+	lda #128 + 64 + 32
 	sta USR_IER
 	
+	; load timer1 counter
 	ldx #LO(RHZ)
 	lda #HI(RHZ)
 
 	stx USR_T1C_L
 	sta USR_T1C_H
 	
+	; load timer2 counter
+	lda #0
+	sta beat_counter
+	lda #TIMER2_SCALE
+	sta beat_interval
+
+	ldx #LO(TIMER2_RATE)
+	lda #HI(TIMER2_RATE)
+	stx USR_T2C_L
+	sta USR_T2C_H	
 
 	; Disable system VIA interrupts
 	;lda #$7f
@@ -306,19 +325,30 @@ ENDIF
 	lda &fc
 	pha
 	
-	lda #&c0
+	; check bits 6 and 5 (timer1 and timer2 irq flags respectively)
+	lda #64 + 32
 	bit USR_IFR
-	; top bit clear - not interrupt from 6522 (user VIA).
+
+	; bit 7 of IFR => N flag (6522 IRQ)
+	; bit 6 of IFR => V flag (Timer1 IRQ)
+	; Z flag set if bit 6 and bit 5 are clear (Timer1 OR Timer2 IRQ)
+
+	; if top bit is clear, this is not an interrupt from 6522 (user VIA).
 	bpl exitirq
-	; bit 6 clear - not our interrupt, process next in chain.
-	bvc exitirq
-	
-	; Clear timer1 interrupt flag
+
+	; neither timer1 or timer2 irq, so process next in chain
+	beq exitirq
+
+	; if bit 6 is clear this must be timer 2 irq
+	bvc timer2irq
+
+	; save registers
 	tya
 	pha
 	txa
 	pha
 
+	; Clear timer1 interrupt flag by reading T1C 
 	lda USR_T1C_L
 	
 
@@ -354,6 +384,27 @@ ENDIF
 	pla
 	sta &fc
 	rti
+
+.timer2irq
+
+	dec beat_interval
+	bne no_new_beat
+	lda #TIMER2_SCALE
+	sta beat_interval
+	inc beat_counter
+.no_new_beat
+
+	; reset timer2 counter & clear T2 IRQ
+	lda #LO(TIMER2_RATE)
+	sta USR_T2C_L
+	lda #HI(TIMER2_RATE)
+	sta USR_T2C_H		; clears T2 IRQ
+
+
+	pla
+	sta &fc
+	rti
+
 .reentry EQUB 0
 }
 
@@ -396,6 +447,8 @@ ENDMACRO
 
 .effect_update
 {
+
+
 	inc timer
 	lda timer
 	cmp #50
@@ -459,6 +512,14 @@ ENDMACRO
 	lda #10
 	jsr grid_fade
 	jsr grid_draw
+
+IF 0
+; debug code
+	lda beat_counter
+	and #15
+	clc:adc#65
+	sta &7c00+40+39
+ENDIF
 
 	IF BEAT_FUNCS
 	\\ Do beat fns
