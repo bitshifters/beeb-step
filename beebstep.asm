@@ -2,6 +2,8 @@
 
 PLAY_MUSIC = TRUE
 BEAT_FUNCS = TRUE
+DO_SCROLLY = TRUE			; if ya think it's tacky ;)
+DEBUG = FALSE
 
 SYS_ORB = &fe40
 SYS_ORA = &fe41
@@ -43,6 +45,9 @@ INCLUDE "fx/pixel.h.asm"
 INCLUDE "fx/pixel_anim.h.asm"
 INCLUDE "lib/bresenham.h.asm"
 INCLUDE "fx/letter.h.asm"
+IF DO_SCROLLY
+INCLUDE "fx/scrolly.h.asm"
+ENDIF
 
 .beat_counter SKIP 1
 .beat_interval SKIP 1
@@ -54,6 +59,7 @@ RHZ = VIA_HZ / SAMP_HZ
 PRINT "TIMER1_RATE ", RHZ
 
 ; Define BPM beat counter frequency - timed off the VIA 1Mhz timer2
+; SM 2019: there are much easier ways to do this using vsync ratios! Lesson learned for next time! :)
 MUSIC_BPM = 110
 TIMER2_SCALE = 13 ; scale timer2 to fit into 16-bits, 13 gives us slightly more precision
 TIMER2_RATE = VIA_HZ * 60 / MUSIC_BPM / TIMER2_SCALE 
@@ -208,6 +214,8 @@ ENDIF
 .loop
 	lda #19:jsr osbyte
 
+; debug text
+IF DEBUG
 	lda #135
 	sta &7c22
 
@@ -240,7 +248,7 @@ ENDIF
 	tax
 	lda hex2ascii,x
 	sta &7c27
-
+ENDIF
 
 	jsr effect_update
 
@@ -441,6 +449,10 @@ ENDMACRO
 	SET_EFFECT_FUNC null_fn
 	SET_BEAT_FUNC 3, fx_letter_update
 
+	IF DO_SCROLLY
+	JSR fx_scrolly_init
+	ENDIF
+
 	rts
 }
 
@@ -513,10 +525,18 @@ ENDMACRO
 	jsr grid_fade
 	jsr grid_draw
 
-IF 0
+	IF DO_SCROLLY
+	JSR fx_scrolly_update
+	ENDIF
+
+IF DEBUG
 ; debug code
 	lda beat_counter
-	and #15
+	lsr a:lsr a
+	clc:adc#65
+	sta &7c00+40+38
+	lda beat_counter
+	and #3
 	clc:adc#65
 	sta &7c00+40+39
 ENDIF
@@ -599,6 +619,9 @@ INCLUDE "fx/pixel.asm"
 INCLUDE "fx/pixel_anim.asm"
 INCLUDE "fx/spin.asm"
 INCLUDE "fx/letter.asm"
+IF DO_SCROLLY
+INCLUDE "fx/scrolly.asm"
+ENDIF
 
 .end
 
