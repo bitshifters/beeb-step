@@ -34,7 +34,7 @@
             "taskName": "Run 'beebstep.ssd' in Emulator",
             "isTestCommand": true,
             "args": [
-                "BeebEm.exe beebstep.ssd"
+                "B-Em.exe beebstep.ssd"
             ]
         }
     ]

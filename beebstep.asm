@@ -3,6 +3,7 @@
 PLAY_MUSIC = TRUE
 BEAT_FUNCS = TRUE
 DO_SCROLLY = TRUE			; if ya think it's tacky ;)
+DEBUG = FALSE
 
 SYS_ORB = &fe40
 SYS_ORA = &fe41
@@ -58,6 +59,7 @@ RHZ = VIA_HZ / SAMP_HZ
 PRINT "TIMER1_RATE ", RHZ
 
 ; Define BPM beat counter frequency - timed off the VIA 1Mhz timer2
+; SM 2019: there are much easier ways to do this using vsync ratios! Lesson learned for next time! :)
 MUSIC_BPM = 110
 TIMER2_SCALE = 13 ; scale timer2 to fit into 16-bits, 13 gives us slightly more precision
 TIMER2_RATE = VIA_HZ * 60 / MUSIC_BPM / TIMER2_SCALE 
@@ -212,6 +214,8 @@ ENDIF
 .loop
 	lda #19:jsr osbyte
 
+; debug text
+IF DEBUG
 	lda #135
 	sta &7c22
 
@@ -244,7 +248,7 @@ ENDIF
 	tax
 	lda hex2ascii,x
 	sta &7c27
-
+ENDIF
 
 	jsr effect_update
 
@@ -525,7 +529,7 @@ ENDMACRO
 	JSR fx_scrolly_update
 	ENDIF
 
-IF 1
+IF DEBUG
 ; debug code
 	lda beat_counter
 	lsr a:lsr a

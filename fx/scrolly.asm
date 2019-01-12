@@ -89,7 +89,7 @@ FX_SCROLLY_SPEED = 10
 
 	\\ Could put in wait and speed commands if desired etc.
 
-	EQUS RED, "BITSHIFTERS",YELLOW,"presents",FLASHING,CYAN,"BEEB STEP",STEADY,WHITE,"Code by Henley and Kieran etc. etc.          ", 0
+	EQUS RED, "BITSHIFTERS",YELLOW,"presents",FLASHING,CYAN,"BEEB STEP",STEADY,WHITE," - A conversion of Battle of the bits chip tune 'SMStep' by TMM12 / BoTB 20492. This chip tune is played back at 392Hz to give us nice crunchy beats and basslines on your BBC Micro! Code by Henley and Kieran. This demo was made in 2017 but only released in January 2019 but better late than never, right? Coming soon - a whole new world of SN76489 chip tunes converted from the Atari ST YM2149 sound chip for your BBC Micro's listening pleasure! Hope you enjoyed it! See you in the next demo!          ", 0
 }
 
 .fx_scrolly_end
