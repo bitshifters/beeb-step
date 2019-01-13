@@ -70,9 +70,6 @@ GUARD &3000
 
 .start
 
-; Master 128 PAGE is &0E00 since MOS uses other RAM buffers for DFS workspace
-SCRATCH_RAM_ADDR = &0400
-
 INCLUDE "lib/exomiser.asm"
 INCLUDE "lib/vgmplayer.asm"
 INCLUDE "lib/disksys.asm"
@@ -82,10 +79,10 @@ INCLUDE "lib/bresenham.asm"
 
 ; disk loader uses hacky filename format (same as catalogue) 
 ; we use disk loader for SWR banks only
-.bank_file0   EQUS "Bank0  $"
-.bank_file1   EQUS "Bank1  $"
-.bank_file2   EQUS "Bank2  $"
-.bank_file3   EQUS "Bank3  $"
+.bank_file0   EQUS "Bank0",13
+.bank_file1   EQUS "Bank1",13
+.bank_file2   EQUS "Bank2",13
+.bank_file3   EQUS "Bank3",13
 
 .screen_file  EQUS "LOAD Page", 13
 
