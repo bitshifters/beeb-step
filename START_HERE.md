@@ -5,7 +5,7 @@ Beeb-Step, a BBC Micro dubstep audio demo (6502, beebasm) playing the "Hundo-Hz"
 | | |
 |---|---|
 | GitHub | https://github.com/bitshifters/beeb-step (public) |
-| Local path | D:\beeb\mine\beeb-step (moved from OneDrive\BEEB\Repos\beeb-step in the 2026-11 tidy) |
+| Local path | D:\bitshifters\beeb-step (moved from OneDrive\BEEB\Repos\beeb-step in the 2026-11 tidy) |
 | Branch | disksys-osfile (checked out, 1 commit past master: "Removed DFS dependency in disksys", 2019-01-13); others: master (release), feature-kc-messing, feature-logowibble, feature-streaming, fx-letters and fx-scrolly (both deleted on GitHub, "gone") |
 | Last commit | 2019-01-13: Removed DFS dependency in disksys |
 
@@ -15,7 +15,7 @@ Beeb-Step, a BBC Micro dubstep audio demo (6502, beebasm) playing the "Hundo-Hz"
 - `makekc.bat` / `runkc.bat`: build and run scripts (both gitignored, so only on this machine). `bin\`: tools.
 
 ## Build and run
-- `make`: runs the same beebasm command as `makekc.bat` (Makefile added 2026-11-22; it repeats the command because the bat is not in git): `..\..\Bin\beebasm.exe -v -i beebstep.asm -do beebstep.ssd -boot Main > compile.txt`. Works; the rebuilt `beebstep.ssd` came out identical to the tracked one.
+- `make`: runs the same beebasm command as `makekc.bat` (Makefile added 2026-11-22; it repeats the command because the bat is not in git): `..\Bin\beebasm.exe -v -i beebstep.asm -do beebstep.ssd -boot Main > compile.txt`. Works; the rebuilt `beebstep.ssd` came out identical to the tracked one.
 - `make help` lists targets. `runkc.bat` launches `..\..\bin\B-em\B-em.exe beebstep.ssd`.
 
 ## Local changes

@@ -5,7 +5,7 @@
 all: build
 
 build:
-	..\..\Bin\beebasm.exe -v -i beebstep.asm -do beebstep.ssd -boot Main > compile.txt
+	..\Bin\beebasm.exe -v -i beebstep.asm -do beebstep.ssd -boot Main > compile.txt
 
 help:
 	@echo make        - assemble beebstep.asm into beebstep.ssd with beebasm (listing in compile.txt)
